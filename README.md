@@ -10,3 +10,15 @@
 女媧伏羲不獨為中原傳說，苗人、瑤人，都有傳說。話女媧伏羲為兄妹，時洪水淹天下，坐葫蘆中漂流，避過一劫。當時天下已無人，兄妹結夫妻而繁衍。
 
 女媧唔止造人，亦做萬物。正月初七人日之說，亦出自女媧，初一雞，初二狗，初三豬，初四羊，初五牛，初六馬，初七人，初八穀，見於東方朔占書。
+
+## Water 
+dynamic resource(no state), advanced deployment manager
+
+## Stone 
+advanced statefulset manager
+
+## Sidecar 
+professional implant, inject your pod
+
+## Job 
+worker
