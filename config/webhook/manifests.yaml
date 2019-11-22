@@ -1,0 +1,160 @@
+
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-nuwa-nip-io-v1-job
+  failurePolicy: Fail
+  name: mjob.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - jobs
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-nuwa-nip-io-v1-sidecar
+  failurePolicy: Fail
+  name: msidecar.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - sidecars
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-nuwa-nip-io-v1-stone
+  failurePolicy: Fail
+  name: mstone.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - stones
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-nuwa-nip-io-v1-water
+  failurePolicy: Fail
+  name: mwater.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - waters
+
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nuwa-nip-io-v1-job
+  failurePolicy: Fail
+  name: vjob.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - jobs
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nuwa-nip-io-v1-sidecar
+  failurePolicy: Fail
+  name: vsidecar.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - sidecars
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nuwa-nip-io-v1-stone
+  failurePolicy: Fail
+  name: vstone.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - stones
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-nuwa-nip-io-v1-water
+  failurePolicy: Fail
+  name: vwater.kb.io
+  rules:
+  - apiGroups:
+    - nuwa.nip.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - waters

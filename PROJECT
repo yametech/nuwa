@@ -1,0 +1,16 @@
+domain: nip.io
+repo: github.com/yametech/nuwa
+resources:
+- group: nuwa
+  kind: Water
+  version: v1
+- group: nuwa
+  kind: Stone
+  version: v1
+- group: nuwa
+  kind: Sidecar
+  version: v1
+- group: nuwa
+  kind: Job
+  version: v1
+version: "2"
