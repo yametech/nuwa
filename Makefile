@@ -4,6 +4,18 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
+
+# Define os env
+ifeq ($(GOOS),windows)
+BINARY_EXT_LOCAL:=.exe
+GOLANGCI_LINT:=golangci-lint.exe
+export ARCHIVE_EXT = .zip
+else
+BINARY_EXT_LOCAL:=
+GOLANGCI_LINT:=golangci-lint
+export ARCHIVE_EXT = .tar.gz
+endif
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -12,6 +24,13 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 all: manager
+
+# Lint
+
+.PHONY: lint
+lint:
+	# Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
+	$(GOLANGCI_LINT) run --fix
 
 # SSL webhook local development
 gen-ssl:
