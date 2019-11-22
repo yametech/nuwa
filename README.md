@@ -1,4 +1,6 @@
 # 女娲(nuwa)
+[![Build Status](https://github.com/yametech/nuwa/workflows/nuwa/badge.svg?event=push&branch=master)](https://github.com/yametech/nuwa/actions?workflow=nuwa)
+
 女媧，中國神祗之一，人稱女媧娘娘，亦有記曰媧皇、女希氏。三皇五帝之中，史記三皇本記，講女媧為三皇之一。以女媧之神話，可歸入創世之神。
 
 傳說有唔同版本。有說為伏羲細妹，以風為姓，兄妹都係人首蛇身，兄妹結為夫婦。又傳說女媧造人，佢用泥整人出嚟。祝融同共工打交，打斷咗不周山條柱，天穿窿，有災禍，女媧煉石補青天，斬鼇足撐住天，災禍得以平息。
