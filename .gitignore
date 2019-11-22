@@ -20,6 +20,10 @@ bin/*
 # editor and IDE paraphernalia
 .idea
 .vscode
+.github
 *.swp
 *.swo
 *~
+
+# ignore local vendor
+vendor
