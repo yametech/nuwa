@@ -1,0 +1,44 @@
+apiVersion: nuwa.nip.io/v1
+kind: Water
+metadata:
+  name: water-sample
+spec:
+  copies: 4
+  strategy: Alpha
+  deploy:
+    selector:
+      matchLabels:
+        app: water-sample
+    template:
+      metadata:
+        name: sample
+        labels:
+          app: water-sample
+      spec:
+        containers:
+          - name: cn-0
+            image: mysql
+  service:
+    ports:
+      - name: default-mysql-port
+        protocol: TCP
+        port: 3306
+        targetPort: 3306
+    type: LoadBalancer
+  coordinates:
+    - room: A
+      cabinet: W-01
+      host: node2
+      replicas: 1
+    - room: A
+      cabinet: S-02
+      host: node2
+      replicas: 1
+    - room: B
+      cabinet: W-01
+      host: node3
+      replicas: 1
+    - room: B
+      cabinet: S-02
+      host: node4
+      replicas: 1

@@ -67,13 +67,13 @@ type WaterSpec struct {
 }
 
 // WaterStatus defines the observed state of Water
+// +kubebuilder:subresource:status
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 // +k8s:openapi-gen=true
 // Water is the Schema for the waters API
 type Water struct {

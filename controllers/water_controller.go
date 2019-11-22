@@ -93,11 +93,17 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
+	r.findMatchNodes(ctx, instance)
+
 	return ctrl.Result{}, nil
 }
 
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
-	logf := r.Log.WithValues("water create service", ctx.Value("request").(ctrl.Request).NamespacedName.String(), "namespace", ctx.Value("request").(ctrl.Request).Namespace)
+	logf := r.Log.WithValues(
+		"water create service",
+		ctx.Value("request").(ctrl.Request).NamespacedName.String(),
+		"namespace",
+		ctx.Value("request").(ctrl.Request).Namespace)
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
@@ -115,7 +121,7 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeLoadBalancer,
+			Type:  instance.Spec.Service.Type,
 			Ports: instance.Spec.Service.Ports,
 			Selector: map[string]string{
 				"app": instance.Name,
@@ -137,7 +143,8 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 }
 
 func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1.Water) error {
-	logf := r.Log.WithValues("water create deployment",
+	logf := r.Log.WithValues(
+		"water create deployment",
 		ctx.Value("request").(ctrl.Request).NamespacedName.String(),
 		"namespace", ctx.Value("request").(ctrl.Request).Namespace,
 	)
@@ -173,24 +180,20 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1
 	}
 
 	if err := r.Client.Create(ctx, newDeploy); err != nil {
-		logf.Error(err, "Deployment create error")
 		return err
 	}
 
 	// Set Deployment instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, newDeploy, r.Scheme); err != nil {
-		logf.Error(err, "SetControllerReference error")
 		return err
 	}
 
 	oldDeploy := &appsv1.Deployment{}
 	if err := r.Client.Get(ctx, ctx.Value("request").(ctrl.Request).NamespacedName, oldDeploy); err != nil {
 		if errors.IsNotFound(err) {
-			logf.Info("Get old deployment not found")
 		} else {
 			oldDeploy.Spec = newDeploy.Spec
 			if err := r.Client.Update(ctx, oldDeploy); err != nil {
-				logf.Error(err, "Update lod deployment error")
 				return err
 			}
 		}
@@ -215,24 +218,34 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 	return nil
 }
 
+func generateMatchLabels(coordinate nuwav1.Coordinate) (client.MatchingLabels, error) {
+	mlabels := make(client.MatchingLabels)
+	if coordinate.Room == "" {
+		return nil, fmt.Errorf("%s", "Coordinate need to specify at least one room")
+	}
+	mlabels["nuwa.io/room"] = coordinate.Room
+	if coordinate.Cabinet != "" {
+		mlabels["nuwa.io/cabinet"] = coordinate.Cabinet
+	}
+	if coordinate.Cabinet != "" {
+		mlabels["nuwa.io/host"] = coordinate.Host
+	}
+	return mlabels, nil
+}
+
 func (r *WaterReconciler) findMatchNodes(ctx context.Context, instance *nuwav1.Water) (map[string]corev1.Node, error) {
 	if len(instance.Spec.Coordinates) < 1 {
 		return nil, NoDefinedErr
 	}
+	//nodesMap := make(map[string]corev1.Node)
 	for index := range instance.Spec.Coordinates {
 		coordinate := instance.Spec.Coordinates[index]
-
-		labels := map[string]string{
-			"nuwa.io/room":    coordinate.Room,
-			"nuwa.io/cabinet": coordinate.Cabinet,
-			"nuwa.io/host":    coordinate.Host,
+		labels, err := generateMatchLabels(coordinate)
+		if err != nil {
+			return nil, err
 		}
-		selector := &metav1.LabelSelector{MatchLabels: labels}
-		_ = selector
-		// TODO//
-
 		nodeList := &corev1.NodeList{}
-		if err := r.Client.List(ctx, nodeList); err != nil {
+		if err = r.Client.List(ctx, nodeList, labels); err != nil {
 			return nil, err
 		}
 	}

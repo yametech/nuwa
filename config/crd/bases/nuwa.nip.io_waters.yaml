@@ -16,8 +16,6 @@ spec:
     singular: water
   preserveUnknownFields: false
   scope: Namespaced
-  subresources:
-    status: {}
   validation:
     openAPIV3Schema:
       description: Water is the Schema for the waters API
