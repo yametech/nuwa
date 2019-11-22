@@ -115,9 +115,8 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-			// TODO
-			//Ports: instance.Spec.Deploy.Template.,
+			Type:  corev1.ServiceTypeLoadBalancer,
+			Ports: instance.Spec.Service.Ports,
 			Selector: map[string]string{
 				"app": instance.Name,
 			},
@@ -226,6 +225,7 @@ func (r *WaterReconciler) findMatchNodes(ctx context.Context, instance *nuwav1.W
 		labels := map[string]string{
 			"nuwa.io/room":    coordinate.Room,
 			"nuwa.io/cabinet": coordinate.Cabinet,
+			"nuwa.io/host":    coordinate.Host,
 		}
 		selector := &metav1.LabelSelector{MatchLabels: labels}
 		_ = selector

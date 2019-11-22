@@ -3,5 +3,41 @@ kind: Water
 metadata:
   name: water-sample
 spec:
-  # Add fields here
-  foo: bar
+  copies: 1
+  strategy: Alpha
+  deploy:
+    selector:
+      matchLabels:
+        app: water-sample
+    template:
+      metadata:
+        name: sample
+        labels:
+          app: water-sample
+      spec:
+        containers:
+        - name: cn-0
+          image: daocloud.io/library/redis:4.0.14-alpine
+  service:
+    ports:
+    - name: default-redis-port
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+  coordinates:
+    - room: A
+      cabinet: W-01
+      host: node2
+      replicas: 1
+    - room: A
+      cabinet: S-02
+      host: node2
+      replicas: 1
+    - room: B
+      cabinet: W-01
+      host: node3
+      replicas: 1
+    - room: B
+      cabinet: S-02
+      host: node4
+      replicas: 1

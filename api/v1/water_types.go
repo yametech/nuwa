@@ -18,6 +18,7 @@ package v1
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -60,8 +61,7 @@ type WaterSpec struct {
 	AutoExpose bool `json:"autoExpose,omitempty"`
 	//// Identify the deployment service expected by the current resource
 	//// +optional
-	//Service corev1.ServiceSpec `json:"service,omitempty"`
-
+	Service corev1.ServiceSpec `json:"service,omitempty"`
 	// +optional
 	Deploy appsv1.DeploymentSpec `json:"deploy,omitempty"`
 }

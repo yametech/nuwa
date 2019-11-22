@@ -1,0 +1,1 @@
+export IMG=10.200.100.200/cloud/controller:latest

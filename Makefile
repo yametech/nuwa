@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= 10.200.100.200/cloud/controller:latest
+IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -12,6 +12,18 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 all: manager
+
+# SSL webhook local development
+gen-ssl:
+	sh ssl/gen-ssl.sh
+
+# Development webhook
+devel-webhook: install
+	kustomize build development/webhook | kubectl delete -f -
+	kustomize build development/webhook | kubectl create -f -
+
+debug: generate fmt vet manifests
+	dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient
 
 # Run tests
 test: generate fmt vet manifests
@@ -38,6 +50,9 @@ deploy: manifests
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | kubectl apply -f -
 
+undeploy:
+	kustomize build config/default | kubectl delete -f -
+
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -54,8 +69,11 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile=./hack/boilerplate.go.txt paths="./..."
 
-# Build the docker image
-docker-build: test
+# Docker build and push
+docker: docker-build docker-push
+
+# Build the docker image , 20191122 remove test
+docker-build:
 	docker build . -t ${IMG}
 
 # Push the docker image

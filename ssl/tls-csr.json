@@ -1,0 +1,19 @@
+{
+  "CN": "nuwa",
+	"hosts": [
+    "10.1.140.202"
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "GuangZhou",
+      "L": "GuangZhou",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}

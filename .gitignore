@@ -23,10 +23,3 @@ bin/*
 *.swp
 *.swo
 *~
-ssl/ca.crt
-ssl/ca.key
-ssl/ca.srl
-ssl/tls.crt
-ssl/tls.csr
-ssl/tls.key
-

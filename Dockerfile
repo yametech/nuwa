@@ -2,6 +2,9 @@
 FROM golang:1.13 as builder
 
 WORKDIR /workspace
+# Env use china proxy
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.cn
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum

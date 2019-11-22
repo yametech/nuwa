@@ -398,6 +398,7 @@ func (in *WaterSpec) DeepCopyInto(out *WaterSpec) {
 		*out = make([]Coordinate, len(*in))
 		copy(*out, *in)
 	}
+	in.Service.DeepCopyInto(&out.Service)
 	in.Deploy.DeepCopyInto(&out.Deploy)
 }
 
