@@ -15,7 +15,7 @@ all: manager
 
 # SSL webhook local development
 gen-ssl:
-	sh ssl/gen-ssl.sh
+	pushd ssl > /dev/null && ./gen-ssl.sh && popd > /dev/null
 
 # Development webhook
 devel-webhook: install
