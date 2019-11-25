@@ -17,7 +17,15 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+type ResourceType string
+
+const (
+	WaterCRD ResourceType = "Water"
+	StoneCRD ResourceType = "Stone"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -28,8 +36,11 @@ type SidecarSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Sidecar. Edit Sidecar_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// PodPresetSpec extned PodPreset
+	Containers   []corev1.Container `json:"containers,omitempty"`
+	ResourceType ResourceType       `json:"resourceType,omitempty"`
+	NameSpace    string             `json:"namespace,omitempty"`
+	Name         string             `json:"name,omitempty"`
 }
 
 // SidecarStatus defines the observed state of Sidecar

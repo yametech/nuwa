@@ -13,7 +13,7 @@ patchesStrategicMerge:
 # patches here are for enabling the conversion webhook for each CRD
 - patches/webhook_in_waters.yaml
 #- patches/webhook_in_stones.yaml
-#- patches/webhook_in_sidecars.yaml
+- patches/webhook_in_sidecars.yaml
 #- patches/webhook_in_jobs.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
@@ -21,7 +21,7 @@ patchesStrategicMerge:
 # patches here are for enabling the CA injection for each CRD
 - patches/cainjection_in_waters.yaml
 #- patches/cainjection_in_stones.yaml
-#- patches/cainjection_in_sidecars.yaml
+- patches/cainjection_in_sidecars.yaml
 #- patches/cainjection_in_jobs.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
