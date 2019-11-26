@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,7 +44,8 @@ var (
 // WaterReconciler reconciles a Water object
 type WaterReconciler struct {
 	client.Client
-	Log    logr.Logger
+	Log logr.Logger
+
 	Scheme *runtime.Scheme
 }
 
@@ -93,7 +94,9 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 	}
 
-	r.findMatchNodes(ctx, instance)
+	if _, err := r.findMatchNodes(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -203,20 +206,21 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1
 	return nil
 }
 
-func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
-	old := &nuwav1.Water{}
-	if err := json.Unmarshal([]byte(instance.Annotations["spec"]), old); err != nil {
-		return err
-	}
-	if !reflect.DeepEqual(instance.Spec, old.Spec) {
-		// Update associated resources
-		old.Spec = instance.Spec
-		if err := r.Client.Update(ctx, old); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//
+//func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
+//	old := &nuwav1.Water{}
+//	if err := json.Unmarshal([]byte(instance.Annotations["spec"]), old); err != nil {
+//		return err
+//	}
+//	if !reflect.DeepEqual(instance.Spec, old.Spec) {
+//		// Update associated resources
+//		old.Spec = instance.Spec
+//		if err := r.Client.Update(ctx, old); err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}
 
 func generateMatchLabels(coordinate nuwav1.Coordinate) (client.MatchingLabels, error) {
 	mlabels := make(client.MatchingLabels)
