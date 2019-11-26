@@ -3,5 +3,10 @@ kind: Sidecar
 metadata:
   name: sidecar-sample
 spec:
-  # Add fields here
-  foo: bar
+  name: water-sample
+  namespace: cert-manager
+  resourceType: Water
+  containers:
+    - name: sidecar1
+      image: centos:7
+      command: ["sleep", "999d"] # do nothing at all

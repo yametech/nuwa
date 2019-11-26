@@ -40,9 +40,10 @@ var _ webhook.Defaulter = &Sidecar{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Sidecar) Default() {
-	sidecarlog.Info("default", "name", r.Name)
+	sidecarlog.Info("sidecar default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
+
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
