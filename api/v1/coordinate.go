@@ -36,23 +36,21 @@ type Coordinate struct {
 }
 
 // Coordinates defines the desired identity pod of nodes
-type Coordinates struct {
-	Coordinates []Coordinate
-}
+type Coordinates []Coordinate
 
-func (c *Coordinates) Len() int { return len(c.Coordinates) }
+func (c *Coordinates) Len() int { return len((*c)) }
 
 func (c *Coordinates) Less(i, j int) bool {
 	if c.Len() <= 1 {
 		return false
-	} else if c.Coordinates[i].Replicas == 0 {
+	} else if (*c)[i].Replicas == 0 {
 		return false
-	} else if c.Coordinates[i].Replicas >= c.Coordinates[j].Replicas {
+	} else if (*c)[i].Replicas >= (*c)[j].Replicas {
 		return false
 	}
 	return true
 }
 
 func (c *Coordinates) Swap(i, j int) {
-	c.Coordinates[i], c.Coordinates[j] = c.Coordinates[j], c.Coordinates[i]
+	(*c)[i], (*c)[j] = (*c)[j], (*c)[i]
 }

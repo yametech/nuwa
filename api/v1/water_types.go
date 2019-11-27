@@ -71,6 +71,10 @@ type WaterSpec struct {
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	ExpectedCopies int32 `json:"expectedCopies,omitempty"`
+	AlreadyCopies  int32 `json:"alreadyCopies,omitempty"`
+
+	DeploymentStatusSlice []appsv1.DeploymentStatus `json:"deploymentStatusSlice,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -85,7 +89,6 @@ type Water struct {
 }
 
 // +kubebuilder:object:root=true
-
 // WaterList contains a list of Water
 type WaterList struct {
 	metav1.TypeMeta `json:",inline"`

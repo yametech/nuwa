@@ -60,24 +60,6 @@ webhooks:
     - UPDATE
     resources:
     - stones
-- clientConfig:
-    caBundle: Cg==
-    service:
-      name: webhook-service
-      namespace: system
-      path: /mutate-nuwa-nip-io-v1-water
-  failurePolicy: Fail
-  name: mwater.kb.io
-  rules:
-  - apiGroups:
-    - nuwa.nip.io
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - waters
 
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1

@@ -91,18 +91,18 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
 		os.Exit(1)
 	}
-	if err = (&controllers.SidecarReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
-		os.Exit(1)
-	}
-	if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
-		os.Exit(1)
-	}
+	//if err = (&controllers.SidecarReconciler{
+	//	Client: mgr.GetClient(),
+	//	Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
+	//	os.Exit(1)
+	//}
+	//if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
+	//	os.Exit(1)
+	//}
 	if err = (&controllers.JobReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Job"),

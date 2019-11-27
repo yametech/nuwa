@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -36,7 +35,6 @@ func (r *Water) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // +kubebuilder:webhook:path=/mutate-nuwa-nip-io-v1-water,mutating=true,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,verbs=create;update,versions=v1,name=mwater.kb.io
-
 var _ webhook.Defaulter = &Water{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -45,20 +43,20 @@ func (r *Water) Default() {
 	waterlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	labels := map[string]string{"app": r.Name}
-	r.Spec.Deploy.Template.Labels = labels
+	//labels := map[string]string{"app": r.Name}
+	//r.Spec.Deploy.Template.Labels = labels
 
 	waterlog.Info("webhook working", "name", r.Name)
-	var cns []corev1.Container
-	cns = r.Spec.Deploy.Template.Spec.Containers
-
-	container := corev1.Container{
-		Name:  "sidecar-nginx",
-		Image: "nginx:1.12.2",
-	}
-
-	cns = append(cns, container)
-	r.Spec.Deploy.Template.Spec.Containers = cns
+	//var cns []corev1.Container
+	//cns = r.Spec.Deploy.Template.Spec.Containers
+	//
+	//container := corev1.Container{
+	//	Name:  "water-sidecar-inject-nginx",
+	//	Image: "nginx:1.12.2",
+	//}
+	//
+	//cns = append(cns, container)
+	//r.Spec.Deploy.Template.Spec.Containers = cns
 
 	waterlog.Info("water nginx inject.")
 	// TODO(user): fill in your defaulting logic.

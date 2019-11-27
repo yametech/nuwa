@@ -28,17 +28,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"strings"
 )
 
 type CoordinateErr error
 
 var (
-	NoDefinedErr CoordinateErr = fmt.Errorf("not defined")
+	NoDefinedErr     CoordinateErr = fmt.Errorf("not defined")
+	LeastNeedRoomErr               = fmt.Errorf("%s", "Coordinate need to specify at least one room")
 )
 
 // WaterReconciler reconciles a Water object
@@ -46,6 +49,10 @@ type WaterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+}
+
+func deploymentName(coordinateName string, instance *nuwav1.Water) string {
+	return fmt.Sprintf("%s-%s", instance.Name, strings.ToLower(coordinateName))
 }
 
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=waters,verbs=get;list;watch;create;update;patch;delete
@@ -58,7 +65,6 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	instance := &nuwav1.Water{}
 	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
 		if errors.IsNotFound(err) {
-			logf.Info("Resource not found")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -69,41 +75,115 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	deployment := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, objectKey, deployment); err != nil {
-		if errors.IsNotFound(err) {
-			if err = r.createDeployment(ctx, instance); err != nil {
-				return ctrl.Result{}, err
-			}
+	//  TODO fill logic
+	// 节点状态需要判断
+	nodesMap, err := r.findMatchNodes(ctx, instance)
+	if err != nil {
+		if err == NoDefinedErr {
+			// TODO 非多机房多地理标识方式部署
+		}
+		return ctrl.Result{}, err
+	}
 
-			if err = r.createService(ctx, instance); err != nil {
-				return ctrl.Result{}, err
-			}
-			// Annotations
-			data, _ := json.Marshal(instance.Spec)
-			if instance.Annotations != nil {
-				instance.Annotations["spec"] = string(data)
-			} else {
-				instance.Annotations = map[string]string{"spec": string(data)}
-			}
+	//TODO
+	for coordinateName, nodeList := range nodesMap {
+		logf.Info("deployment for", "coordinate", coordinateName)
+		var size int32 = 1
+		coordinateNameSet := strings.Split(coordinateName, "-")
+		room := coordinateNameSet[0]
+		cabinet := coordinateNameSet[1]
 
-			if err = r.Client.Update(context.TODO(), instance); err != nil {
-				return reconcile.Result{}, err
+		var nodeNameList []string
+		if len(nodeList.Items) > 0 {
+			for i := range nodeList.Items {
+				nodeNameList = append(nodeNameList, nodeList.Items[i].Name)
 			}
+		}
+
+		var nodeRequiredSelectorReqs = []corev1.NodeSelectorRequirement{
+			corev1.NodeSelectorRequirement{
+				Key:      "nuwa.io/room",
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   []string{room},
+			},
+		}
+
+		var nodePrefrredSelectorReqs = []corev1.PreferredSchedulingTerm{
+			corev1.PreferredSchedulingTerm{
+				Weight: 100,
+				Preference: corev1.NodeSelectorTerm{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						corev1.NodeSelectorRequirement{
+							Key:      "nuwa.io/room",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{room},
+						},
+						corev1.NodeSelectorRequirement{
+							Key:      "nuwa.io/cabinet",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{cabinet},
+						},
+						corev1.NodeSelectorRequirement{
+							Key:      "nuwa.io/host",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   nodeNameList,
+						},
+					},
+				},
+			},
+		}
+
+		nodeAffinity := &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					corev1.NodeSelectorTerm{
+						MatchExpressions: nodeRequiredSelectorReqs,
+					},
+				},
+			},
+			PreferredDuringSchedulingIgnoredDuringExecution: nodePrefrredSelectorReqs,
+		}
+
+		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(coordinateName, instance)}
+		deployment := &appsv1.Deployment{}
+		if err := r.Client.Get(ctx, objKey, deployment); err != nil {
+			if errors.IsNotFound(err) {
+				if err1 := r.createDeployment(ctx, objKey, instance, &size, nodeAffinity); err1 != nil {
+					return ctrl.Result{}, err1
+				}
+				if err2 := r.createService(ctx, instance); err2 != nil {
+					return ctrl.Result{}, err2
+				}
+				// Annotations
+				r.annotation(instance)
+				if err3 := r.Client.Update(context.TODO(), instance); err3 != nil {
+					return reconcile.Result{}, err3
+				}
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
 		}
 	}
 
-	r.findMatchNodes(ctx, instance)
+	instance.Status.AlreadyCopies += 1
+	instance.Status.ExpectedCopies = *instance.Spec.Copies
 
 	return ctrl.Result{}, nil
 }
 
+func (r *WaterReconciler) annotation(instance *nuwav1.Water) {
+	data, _ := json.Marshal(instance.Spec)
+	if instance.Annotations != nil {
+		instance.Annotations["spec"] = string(data)
+	} else {
+		instance.Annotations = map[string]string{"spec": string(data)}
+	}
+}
+
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
-	logf := r.Log.WithValues(
-		"water create service",
-		ctx.Value("request").(ctrl.Request).NamespacedName.String(),
-		"namespace",
-		ctx.Value("request").(ctrl.Request).Namespace)
+	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
+	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
+	logf := r.Log.WithValues("water create service", objectKey, "namespace", nameSpace)
 
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
@@ -129,11 +209,14 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 		},
 	}
 
-	if err := r.Client.Get(ctx, ctx.Value("request").(ctrl.Request).NamespacedName, service); err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-		if err = r.Client.Create(ctx, service); err != nil {
+	if err := r.Client.Get(ctx, objectKey, service); err != nil {
+		if errors.IsNotFound(err) {
+			if err = r.Client.Create(ctx, service); err != nil {
+				return err
+			}
+		} else if errors.IsAlreadyExists(err) {
+			logf.Info("Service", "status", "alreadyExists")
+		} else {
 			return err
 		}
 	}
@@ -142,22 +225,24 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 	return nil
 }
 
-func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1.Water) error {
-	logf := r.Log.WithValues(
-		"water create deployment",
-		ctx.Value("request").(ctrl.Request).NamespacedName.String(),
-		"namespace", ctx.Value("request").(ctrl.Request).Namespace,
-	)
+func (r *WaterReconciler) createDeployment(ctx context.Context, deployName types.NamespacedName, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
+	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
+	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
+	logf := r.Log.WithValues("water create deployment", objectKey, "namespace", nameSpace)
 
 	labels := map[string]string{"app": instance.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
-	size := int32(1)
+	if nodeAffinity != nil {
+		instance.Spec.Deploy.Template.Spec.Affinity = &corev1.Affinity{
+			NodeAffinity: nodeAffinity,
+		}
+	}
 
 	newDeploy := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
+			Name:      deployName.Name,
+			Namespace: deployName.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance,
 					schema.GroupVersionKind{
@@ -168,7 +253,7 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &size,
+			Replicas: size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -182,16 +267,14 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, instance *nuwav1
 	if err := r.Client.Create(ctx, newDeploy); err != nil {
 		return err
 	}
-
 	// Set Deployment instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, newDeploy, r.Scheme); err != nil {
 		return err
 	}
 
 	oldDeploy := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, ctx.Value("request").(ctrl.Request).NamespacedName, oldDeploy); err != nil {
-		if errors.IsNotFound(err) {
-		} else {
+	if err := r.Client.Get(ctx, deployName, oldDeploy); err != nil {
+		if !errors.IsNotFound(err) {
 			oldDeploy.Spec = newDeploy.Spec
 			if err := r.Client.Update(ctx, oldDeploy); err != nil {
 				return err
@@ -218,38 +301,44 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 	return nil
 }
 
-func generateMatchLabels(coordinate nuwav1.Coordinate) (client.MatchingLabels, error) {
-	mlabels := make(client.MatchingLabels)
+func generateCoordinateMatchLabels(coordinate nuwav1.Coordinate) (labs client.MatchingLabels, err error) {
 	if coordinate.Room == "" {
-		return nil, fmt.Errorf("%s", "Coordinate need to specify at least one room")
+		return nil, LeastNeedRoomErr
 	}
-	mlabels["nuwa.io/room"] = coordinate.Room
+	labs = make(client.MatchingLabels)
+	labs["nuwa.io/room"] = coordinate.Room
 	if coordinate.Cabinet != "" {
-		mlabels["nuwa.io/cabinet"] = coordinate.Cabinet
+		labs["nuwa.io/cabinet"] = coordinate.Cabinet
 	}
-	if coordinate.Cabinet != "" {
-		mlabels["nuwa.io/host"] = coordinate.Host
-	}
-	return mlabels, nil
+	return labs, nil
 }
 
-func (r *WaterReconciler) findMatchNodes(ctx context.Context, instance *nuwav1.Water) (map[string]corev1.Node, error) {
+func generateHostMatchLables(coordinate nuwav1.Coordinate) (labs client.MatchingLabels) {
+	labs = make(client.MatchingLabels)
+	if coordinate.Host != "" {
+		labs["nuwa.io/host"] = coordinate.Host
+	}
+	return labs
+}
+
+func (r *WaterReconciler) findMatchNodes(ctx context.Context, instance *nuwav1.Water) (res map[string]corev1.NodeList, err error) {
 	if len(instance.Spec.Coordinates) < 1 {
 		return nil, NoDefinedErr
 	}
-	//nodesMap := make(map[string]corev1.Node)
+	res = make(map[string]corev1.NodeList)
 	for index := range instance.Spec.Coordinates {
 		coordinate := instance.Spec.Coordinates[index]
-		labels, err := generateMatchLabels(coordinate)
+		labels, err := generateCoordinateMatchLabels(coordinate)
 		if err != nil {
 			return nil, err
 		}
-		nodeList := &corev1.NodeList{}
-		if err = r.Client.List(ctx, nodeList, labels); err != nil {
+		nodeList := corev1.NodeList{}
+		if err = r.Client.List(ctx, &nodeList, labels, generateHostMatchLables(coordinate)); err != nil {
 			return nil, err
 		}
+		res[fmt.Sprintf("%s-%s", coordinate.Room, coordinate.Cabinet)] = nodeList
 	}
-	return nil, nil
+	return res, nil
 }
 
 func (r *WaterReconciler) SetupWithManager(mgr ctrl.Manager) error {
