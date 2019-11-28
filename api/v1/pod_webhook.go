@@ -86,6 +86,7 @@ func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
 	return matchingSPs, nil
 }
 
+//TODO: Only support Create Event,Not Support Update Event.Next version will Support it
 func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	glog.V(2).Info("Entering mutatePods in mutating webhook")
 	podResource := metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
@@ -111,14 +112,16 @@ func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Ignore if exclusion annotation is present
 	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {
 		glog.V(5).Infof("Looking at pod annotations, found: %v", podAnnotations)
-		if podAnnotations[fmt.Sprintf("%s/exclude", annotationPrefix)] == "true" {
-			return &reviewResponse
-		}
+		//TODO: when Update Event,should be check it
+		//if podAnnotations[fmt.Sprintf("%s/exclude", annotationPrefix)] == "true" {
+		//	return &reviewResponse
+		//}
 		if _, isMirrorPod := podAnnotations[corev1.MirrorPodAnnotationKey]; isMirrorPod {
 			return &reviewResponse
 		}
 	}
 
+	//TODO:Use kuberbuilder mgr cliet
 	crdclient := getCrdClient()
 	list := &SidecarList{}
 	err := crdclient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
@@ -153,7 +156,6 @@ func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	glog.V(5).Infof("Matching SP detected of count %v, patching spec", len(matchingSPs))
-	//var aftCns []corev1.Container
 	if matchingSPs[0].Spec.PreContainers != nil && matchingSPs[0].Spec.AfterContainers == nil {
 		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
 	}
