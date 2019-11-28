@@ -45,7 +45,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func podMutating() {
+func podMutatingServe() {
 	certFile := "ssl/tls.crt"
 	ceyFile := "ssl/tls.key"
 	http.HandleFunc("/mutating-pods", nuwav1.ServeMutatePods)
@@ -134,7 +134,7 @@ func main() {
 	// +kubebuilder:scaffold:builder
 
 	go func() {
-		podMutating()
+		podMutatingServe()
 	}()
 
 	setupLog.Info("starting manager")
