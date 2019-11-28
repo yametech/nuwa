@@ -18,7 +18,10 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
+
+	"github.com/golang/glog"
 
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
@@ -40,6 +43,19 @@ func init() {
 
 	_ = nuwav1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+}
+
+func podMutating() {
+	certFile := "C:\\Users\\yamei\\Desktop\\OpenSource\\nuwa\\ssl\\tls.crt"
+	ceyFile := "C:\\Users\\yamei\\Desktop\\OpenSource\\nuwa\\ssl\\tls.key"
+	http.HandleFunc("/mutating-pods", nuwav1.ServeMutatePods)
+	server := &http.Server{
+		Addr: ":443",
+	}
+	glog.Infof("About to start serving webhooks: %#v", server)
+	if err := server.ListenAndServeTLS(certFile, ceyFile); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -91,18 +107,18 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
 		os.Exit(1)
 	}
-	//if err = (&controllers.SidecarReconciler{
-	//	Client: mgr.GetClient(),
-	//	Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
-	//	Scheme: mgr.GetScheme(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
-	//	os.Exit(1)
-	//}
-	//if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
-	//	os.Exit(1)
-	//}
+	if err = (&controllers.SidecarReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
+		os.Exit(1)
+	}
+	if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
+		os.Exit(1)
+	}
 	if err = (&controllers.JobReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Job"),
@@ -116,6 +132,10 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	go func() {
+		podMutating()
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

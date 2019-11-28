@@ -15,85 +15,255 @@ limitations under the License.
 */
 package v1
 
-//
-//import (
-//	corev1 "k8s.io/api/core/v1"
-//	"k8s.io/apimachinery/pkg/runtime"
-//	ctrl "sigs.k8s.io/controller-runtime"
-//	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-//	"sigs.k8s.io/controller-runtime/pkg/webhook"
-//)
-//
-//type Pod struct {
-//	corev1.Pod
-//}
-//
-//// log is for logging in this package.
-//var podlog = logf.Log.WithName("water-resource")
-//
-//func (r *Pod) SetupWebhookWithManager(mgr ctrl.Manager) error {
-//	return ctrl.NewWebhookManagedBy(mgr).
-//		For(r).
-//		Complete()
-//}
-//
-//// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-//
-//// +kubebuilder:webhook:path=/mutate-nuwa-nip-io-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io
-//
-//var _ webhook.Defaulter = &Pod{}
-//
-//// Default implements webhook.Defaulter so a webhook will be registered for the type
-//func (r *Pod) Default() {
-//	podlog.Info("default", "name", r.Name)
-//	podlog.Info("validate create", "name", r.Name)
-//
-//	// TODO(user): fill in your validation logic upon object creation.
-//	//labels := map[string]string{"app": r.Name}
-//	//r.Spec.Deploy.Template.Labels = labels
-//
-//	podlog.Info("webhook working", "name", r.Name)
-//	//var cns []corev1.Container
-//	//cns = r.Spec.Deploy.Template.Spec.Containers
-//	//
-//	//container := corev1.Container{
-//	//	Name:  "water-sidecar-inject-nginx",
-//	//	Image: "nginx:1.12.2",
-//	//}
-//	//
-//	//cns = append(cns, container)
-//	//r.Spec.Deploy.Template.Spec.Containers = cns
-//
-//	podlog.Info("water nginx inject.")
-//	// TODO(user): fill in your defaulting logic.
-//	podlog.Info("water webhook default", "name", r.Name)
-//}
-//
-//// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//// +kubebuilder:webhook:verbs=create;update,path=/validate-nuwa-nip-io-v1-pod,mutating=false,failurePolicy=fail,groups="",resources=pods,versions=v1,name=vpod.kb.io
-//
-//var _ webhook.Validator = &Pod{}
-//
-//// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-//func (r *Pod) ValidateCreate() error {
-//	podlog.Info("validate create", "name", r.Name)
-//
-//	// TODO(user): fill in your validation logic upon object creation.
-//	return nil
-//}
-//
-//// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-//func (r *Pod) ValidateUpdate(old runtime.Object) error {
-//	podlog.Info("validate update", "name", r.Name)
-//
-//	// TODO(user): fill in your validation logic upon object update.
-//	return nil
-//}
-//
-//// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-//func (r *Pod) ValidateDelete() error {
-//	podlog.Info("validate delete", "name", r.Name)
-//
-//	// TODO(user): fill in your validation logic upon object deletion.
-//	return nil
-//}
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"gomodules.xyz/jsonpatch/v2"
+	"k8s.io/apimachinery/pkg/api/meta"
+
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/golang/glog"
+	"k8s.io/api/admission/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	annotationPrefix = "sidecar.admission.nuwav1.io"
+)
+
+var (
+	schemePod = runtime.NewScheme()
+)
+
+// Config contains the server (the webhook) cert and key.
+type Config struct {
+	CertFile string
+	KeyFile  string
+}
+
+func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
+	return &v1beta1.AdmissionResponse{
+		Result: &metav1.Status{
+			Message: err.Error(),
+		},
+	}
+}
+
+func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
+	var matchingSPs []*Sidecar
+
+	for _, sp := range list {
+		selector, err := metav1.LabelSelectorAsSelector(&sp.Spec.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("label selector conversion failed: %v for selector: %v", sp.Spec.Selector, err)
+		}
+
+		// check if the pod labels match the selector
+		if !selector.Matches(labels.Set(pod.Labels)) {
+			glog.V(6).Infof("SidecarPod '%s' does NOT match pod '%s' labels", sp.GetName(), pod.GetName())
+			continue
+		}
+		glog.V(4).Infof("SidecarPod '%s' matches pod '%s' labels", sp.GetName(), pod.GetName())
+		// create pointer to a non-loop variable
+		newSP := sp
+		matchingSPs = append(matchingSPs, &newSP)
+	}
+	return matchingSPs, nil
+}
+
+func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	glog.V(2).Info("Entering mutatePods in mutating webhook")
+	podResource := metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	if ar.Request.Resource != podResource {
+		glog.Errorf("expect resource to be %s", podResource)
+		return nil
+	}
+
+	raw := ar.Request.Object.Raw
+	pod := corev1.Pod{}
+	deserializer := serializer.NewCodecFactory(
+		runtime.NewScheme(),
+	).UniversalDeserializer()
+	if _, _, err := deserializer.Decode(raw, nil, &pod); err != nil {
+		glog.Error(err)
+		return toAdmissionResponse(err)
+	}
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	podCopy := pod.DeepCopy()
+	glog.V(6).Infof("Examining pod: %v\n", pod.GetName())
+
+	// Ignore if exclusion annotation is present
+	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {
+		glog.V(5).Infof("Looking at pod annotations, found: %v", podAnnotations)
+		if podAnnotations[fmt.Sprintf("%s/exclude", annotationPrefix)] == "true" {
+			return &reviewResponse
+		}
+		if _, isMirrorPod := podAnnotations[corev1.MirrorPodAnnotationKey]; isMirrorPod {
+			return &reviewResponse
+		}
+	}
+
+	crdclient := getCrdClient()
+	list := &SidecarList{}
+	err := crdclient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
+	if meta.IsNoMatchError(err) {
+		glog.Errorf("%v (has the CRD been loaded?)", err)
+		return toAdmissionResponse(err)
+	} else if err != nil {
+		glog.Errorf("error fetching sidecar: %v", err)
+		return toAdmissionResponse(err)
+	}
+
+	glog.Infof("fetched %d sidecar(s) in namespace %s", len(list.Items), pod.Namespace)
+	if len(list.Items) == 0 {
+		glog.V(5).Infof("No pod sidecar created, so skipping pod %v", pod.Name)
+		return &reviewResponse
+	}
+
+	matchingSPs, err := filterSidecarPod(list.Items, &pod)
+	if err != nil {
+		glog.Errorf("filtering pod sidecar failed: %v", err)
+		return toAdmissionResponse(err)
+	}
+
+	if len(matchingSPs) == 0 {
+		glog.V(5).Infof("No matching pod presets, so skipping pod %v", pod.Name)
+		return &reviewResponse
+	}
+
+	sidecarNames := make([]string, len(matchingSPs))
+	for i, sp := range matchingSPs {
+		sidecarNames[i] = sp.GetName()
+	}
+
+	glog.V(5).Infof("Matching SP detected of count %v, patching spec", len(matchingSPs))
+	//var aftCns []corev1.Container
+	if matchingSPs[0].Spec.PreContainers != nil && matchingSPs[0].Spec.AfterContainers == nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
+	}
+	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers == nil {
+		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	}
+
+	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers != nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
+		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	}
+
+	// TODO: investigate why GetGenerateName doesn't work
+	glog.Infof("applied sidecar: %s successfully on Pod: %+v ", strings.Join(sidecarNames, ","), pod.GetName())
+
+	podCopyJSON, err := json.Marshal(podCopy)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	podJSON, err := json.Marshal(pod)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	jsonPatch, err := jsonpatch.CreatePatch(podJSON, podCopyJSON)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	jsonPatchBytes, _ := json.Marshal(jsonPatch)
+
+	reviewResponse.Patch = jsonPatchBytes
+	pt := v1beta1.PatchTypeJSONPatch
+	reviewResponse.PatchType = &pt
+
+	return &reviewResponse
+}
+
+type admitFunc func(v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+
+func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
+	var body []byte
+	if r.Body != nil {
+		if data, err := ioutil.ReadAll(r.Body); err == nil {
+			body = data
+		}
+	}
+
+	// verify the content type is accurate
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		glog.Errorf("contentType=%s, expect application/json", contentType)
+		return
+	}
+
+	var reviewResponse *v1beta1.AdmissionResponse
+	ar := v1beta1.AdmissionReview{}
+	deserializer := serializer.NewCodecFactory(
+		runtime.NewScheme(),
+	).UniversalDeserializer()
+	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+		glog.Error(err)
+		reviewResponse = toAdmissionResponse(err)
+	} else {
+		reviewResponse = admit(ar)
+	}
+
+	response := v1beta1.AdmissionReview{}
+	if reviewResponse != nil {
+		response.Response = reviewResponse
+		response.Response.UID = ar.Request.UID
+	}
+	response.APIVersion = "admission.k8s.io/v1"
+	response.Kind = "AdmissionReview"
+	// reset the Object and OldObject, they are not needed in a response.
+	//ar.Request.Object = runtime.RawExtension{}
+	//ar.Request.OldObject = runtime.RawExtension{}
+
+	resp, err := json.Marshal(response)
+	if err != nil {
+		glog.Error(err)
+	}
+	if _, err := w.Write(resp); err != nil {
+		glog.Error(err)
+	}
+}
+
+func ServeMutatePods(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, mutatePods)
+}
+
+func getCrdClient() client.Client {
+	config, err := config.GetConfig()
+	if err != nil {
+		glog.Fatal(err)
+	}
+	crdclient, err := client.New(config, client.Options{Scheme: schemePod})
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	return crdclient
+}
+
+func init() {
+	addToSchemea(schemePod)
+}
+
+func addToSchemea(scheme *runtime.Scheme) {
+	_ = corev1.AddToScheme(scheme)
+	_ = admissionregistrationv1beta1.AddToScheme(scheme)
+	// defaulting with webhooks:
+	// https://github.com/kubernetes/kubernetes/issues/57982
+	_ = AddToScheme(scheme)
+}
