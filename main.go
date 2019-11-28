@@ -46,8 +46,8 @@ func init() {
 }
 
 func podMutating() {
-	certFile := "C:\\Users\\yamei\\Desktop\\OpenSource\\nuwa\\ssl\\tls.crt"
-	ceyFile := "C:\\Users\\yamei\\Desktop\\OpenSource\\nuwa\\ssl\\tls.key"
+	certFile := "ssl/tls.crt"
+	ceyFile := "ssl/tls.key"
 	http.HandleFunc("/mutating-pods", nuwav1.ServeMutatePods)
 	server := &http.Server{
 		Addr: ":443",
