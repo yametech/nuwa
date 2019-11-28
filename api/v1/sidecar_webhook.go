@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -29,7 +28,7 @@ var sidecarlog = logf.Log.WithName("sidecar-resource")
 
 func (r *Sidecar) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&corev1.Pod{}).
+		For(r).
 		Complete()
 }
 
