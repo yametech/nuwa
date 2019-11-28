@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: (devel)
+    controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
   name: jobs.nuwa.nip.io
 spec:
@@ -14,8 +14,7 @@ spec:
     listKind: JobList
     plural: jobs
     singular: job
-  preserveUnknownFields: false
-  scope: Namespaced
+  scope: ""
   validation:
     openAPIV3Schema:
       description: Job is the Schema for the jobs API

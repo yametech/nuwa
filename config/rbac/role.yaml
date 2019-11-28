@@ -29,26 +29,6 @@ rules:
 - apiGroups:
   - nuwa.nip.io
   resources:
-  - sidecars
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - nuwa.nip.io
-  resources:
-  - sidecars/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - nuwa.nip.io
-  resources:
   - stones
   verbs:
   - create
