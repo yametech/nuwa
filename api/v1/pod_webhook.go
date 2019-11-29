@@ -26,7 +26,6 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/api/meta"
 
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,7 +36,9 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
 const (
@@ -245,9 +246,7 @@ func init() {
 }
 
 func addToSchemea(scheme *runtime.Scheme) {
-	_ = corev1.AddToScheme(scheme)
-	_ = admissionregistrationv1beta1.AddToScheme(scheme)
-	// defaulting with webhooks:
-	// https://github.com/kubernetes/kubernetes/issues/57982
+	_ = extapi.AddToScheme(scheme)
+	_ = kscheme.AddToScheme(scheme)
 	_ = AddToScheme(scheme)
 }
