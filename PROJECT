@@ -13,4 +13,7 @@ resources:
 - group: nuwa
   kind: Job
   version: v1
+- group: nuwa
+  kind: Injector
+  version: v1
 version: "2"

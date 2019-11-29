@@ -1,0 +1,7 @@
+apiVersion: nuwa.nip.io/v1
+kind: Injector
+metadata:
+  name: injector-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -19,26 +19,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
-
-	"gomodules.xyz/jsonpatch/v2"
-	"k8s.io/apimachinery/pkg/api/meta"
-
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-
-	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/golang/glog"
+	"gomodules.xyz/jsonpatch/v2"
+	"io/ioutil"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
+	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
@@ -49,6 +44,8 @@ var (
 	schemePod = runtime.NewScheme()
 )
 
+// +kubebuilder:object:root=false
+// +k8s:deepcopy-gen=false
 type Pod struct {
 	KubeClient client.Client
 }
