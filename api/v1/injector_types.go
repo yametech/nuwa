@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,8 +29,18 @@ type InjectorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Injector. Edit Injector_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	PreContainers []corev1.Container `json:"preContainers,omitempty"`
+
+	AfterContainers []corev1.Container `json:"afterContainers,omitempty"`
+
+	ResourceType string `json:"resourceType,omitempty"`
+
+	NameSpace string `json:"namespace,omitempty"`
+
+	Name string `json:"name,omitempty"`
+	// Selector is a label query over a set of resources, in this case pods.
+	// Required.
+	Selector metav1.LabelSelector `json:"selector"`
 }
 
 // InjectorStatus defines the observed state of Injector

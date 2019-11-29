@@ -18,6 +18,15 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,14 +45,97 @@ type InjectorReconciler struct {
 
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=injectors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=injectors/status,verbs=get;update;patch
-
 func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("injector", req.NamespacedName)
+	ctx := context.Background()
+	logf := r.Log.WithValues("injector", req.NamespacedName)
+	// Fetch the PodPreset instance
+	instance := &nuwav1.Injector{}
+	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Object not found, return.  Created objects are automatically garbage collected.
+			// For additional cleanup logic use finalizers.
+			logf.Info("Nuwa sidecar resource not found")
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+	if instance.Spec.Name == "" {
+		return reconcile.Result{}, nil
+	}
+	if instance.DeletionTimestamp != nil {
+		logf.Info("Resource is being deleted")
+		return ctrl.Result{}, nil
+	}
+	logf.Info("Fetched nuwav1  injector object")
 
-	// your logic here
+	if instance.Spec.ResourceType == "Water" {
+		water := &nuwav1.Water{}
+		if err := r.Client.Get(ctx,
+			types.NamespacedName{Namespace: instance.Spec.NameSpace, Name: instance.Spec.Name},
+			water); err != nil {
+			if errors.IsNotFound(err) {
+				return ctrl.Result{}, nil
+			}
+		}
+		instance.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			*metav1.NewControllerRef(
+				water,
+				schema.GroupVersionKind{
+					Group:   nuwav1.GroupVersion.Group,
+					Version: nuwav1.GroupVersion.Version,
+					Kind:    "Water",
+				}),
+		}
 
-	return ctrl.Result{}, nil
+	}
+
+	if instance.Spec.ResourceType == "Stone" {
+		water := &nuwav1.Stone{}
+		if err := r.Client.Get(ctx,
+			types.NamespacedName{Namespace: instance.Spec.NameSpace, Name: instance.Spec.Name},
+			water); err != nil {
+			if errors.IsNotFound(err) {
+				return ctrl.Result{}, nil
+			}
+		}
+		instance.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+			*metav1.NewControllerRef(
+				water,
+				schema.GroupVersionKind{
+					Group:   nuwav1.GroupVersion.Group,
+					Version: nuwav1.GroupVersion.Version,
+					Kind:    "Stone",
+				}),
+		}
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(&instance.Spec.Selector)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	podList := &corev1.PodList{}
+	err = r.Client.List(context.TODO(), podList, &client.ListOptions{Namespace: instance.GetNamespace()})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	for _, pod := range podList.Items {
+		if selector.Matches(labels.Set(pod.Labels)) {
+			n := instance.GetName()
+			bouncedKey := fmt.Sprintf("%s/bounced-%s", annotationPrefix, n)
+			_, found := pod.ObjectMeta.Annotations[bouncedKey]
+			if !found {
+				metav1.SetMetaDataAnnotation(&pod.ObjectMeta, bouncedKey, instance.GetResourceVersion())
+				err = r.Client.Update(context.TODO(), &pod)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+
+		}
+	}
+	return reconcile.Result{}, nil
 }
 
 func (r *InjectorReconciler) SetupWithManager(mgr ctrl.Manager) error {
