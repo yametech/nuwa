@@ -39,10 +39,7 @@ import (
 
 type CoordinateErr error
 
-var (
-	NoDefinedErr     CoordinateErr = fmt.Errorf("not defined")
-	LeastNeedRoomErr               = fmt.Errorf("%s", "Coordinate need to specify at least one room")
-)
+var ErrNeedAtLeastRoom = fmt.Errorf("%s", "coordinate need to specify at least room")
 
 // WaterReconciler reconciles a Water object
 type WaterReconciler struct {
@@ -76,98 +73,37 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	//  TODO fill logic
-	// 节点状态需要判断
-	nodesMap, err := r.findMatchNodes(ctx, instance)
+	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
-		if err == NoDefinedErr {
-			// TODO 非多机房多地理标识方式部署
-		}
 		return ctrl.Result{}, err
 	}
 
-	//TODO
-	for coordinateName, nodeList := range nodesMap {
-		logf.Info("deployment for", "coordinate", coordinateName)
-		var size int32 = 1
-		coordinateNameSet := strings.Split(coordinateName, "-")
-		room := coordinateNameSet[0]
-		cabinet := coordinateNameSet[1]
+	for i := range coordinators {
+		lc := coordinators[i]
+		logf.Info("deployment for", "coordinate", lc.Name)
 
-		var nodeNameList []string
-		if len(nodeList.Items) > 0 {
-			for i := range nodeList.Items {
-				nodeNameList = append(nodeNameList, nodeList.Items[i].Name)
-			}
-		}
-
-		var nodeRequiredSelectorReqs = []corev1.NodeSelectorRequirement{
-			corev1.NodeSelectorRequirement{
-				Key:      "nuwa.io/room",
-				Operator: corev1.NodeSelectorOpIn,
-				Values:   []string{room},
-			},
-		}
-
-		var nodePrefrredSelectorReqs = []corev1.PreferredSchedulingTerm{
-			corev1.PreferredSchedulingTerm{
-				Weight: 100,
-				Preference: corev1.NodeSelectorTerm{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						corev1.NodeSelectorRequirement{
-							Key:      "nuwa.io/room",
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{room},
-						},
-						corev1.NodeSelectorRequirement{
-							Key:      "nuwa.io/cabinet",
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{cabinet},
-						},
-						corev1.NodeSelectorRequirement{
-							Key:      "nuwa.io/host",
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   nodeNameList,
-						},
-					},
-				},
-			},
-		}
-
-		nodeAffinity := &corev1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-				NodeSelectorTerms: []corev1.NodeSelectorTerm{
-					corev1.NodeSelectorTerm{
-						MatchExpressions: nodeRequiredSelectorReqs,
-					},
-				},
-			},
-			PreferredDuringSchedulingIgnoredDuringExecution: nodePrefrredSelectorReqs,
-		}
-
-		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(coordinateName, instance)}
+		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(lc.Name, instance)}
 		deployment := &appsv1.Deployment{}
 		if err := r.Client.Get(ctx, objKey, deployment); err != nil {
 			if errors.IsNotFound(err) {
-				if err1 := r.createDeployment(ctx, objKey, instance, &size, nodeAffinity); err1 != nil {
-					return ctrl.Result{}, err1
+				if err := r.createDeployment(ctx, objKey, instance, &lc.Coordinate.Replicas, lc.NodeAffinity); err != nil {
+					return ctrl.Result{}, err
 				}
-				if err2 := r.createService(ctx, instance); err2 != nil {
-					return ctrl.Result{}, err2
+				if err := r.createService(ctx, instance); err != nil {
+					return ctrl.Result{}, err
 				}
 				// Annotations
 				r.annotation(instance)
-				if err3 := r.Client.Update(context.TODO(), instance); err3 != nil {
-					return reconcile.Result{}, err3
+				if err := r.Client.Update(context.TODO(), instance); err != nil {
+					return reconcile.Result{}, err
 				}
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
 		}
+
+		instance.Status.AlreadyCopies += 1
 	}
-
-	instance.Status.AlreadyCopies += 1
-	instance.Status.ExpectedCopies = *instance.Spec.Copies
-
 	return ctrl.Result{}, nil
 }
 
@@ -191,21 +127,16 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(
-					instance,
-					schema.GroupVersionKind{
-						Group:   nuwav1.GroupVersion.Group,
-						Version: nuwav1.GroupVersion.Version,
-						Kind:    "Water",
-					}),
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   nuwav1.GroupVersion.Group,
+					Version: nuwav1.GroupVersion.Version,
+					Kind:    "Water"}),
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  instance.Spec.Service.Type,
-			Ports: instance.Spec.Service.Ports,
-			Selector: map[string]string{
-				"app": instance.Name,
-			},
+			Type:     instance.Spec.Service.Type,
+			Ports:    instance.Spec.Service.Ports,
+			Selector: map[string]string{"app": instance.Name},
 		},
 	}
 
@@ -215,7 +146,7 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 				return err
 			}
 		} else if errors.IsAlreadyExists(err) {
-			logf.Info("Service", "status", "alreadyExists")
+			logf.Info("Service", "status", "already exists")
 		} else {
 			return err
 		}
@@ -255,10 +186,8 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, deployName types
 		Spec: appsv1.DeploymentSpec{
 			Replicas: size,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: instance.Spec.Deploy.Template.Spec,
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec:       instance.Spec.Deploy.Template.Spec,
 			},
 			Selector: selector,
 		},
@@ -299,46 +228,6 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 		}
 	}
 	return nil
-}
-
-func generateCoordinateMatchLabels(coordinate nuwav1.Coordinate) (labs client.MatchingLabels, err error) {
-	if coordinate.Room == "" {
-		return nil, LeastNeedRoomErr
-	}
-	labs = make(client.MatchingLabels)
-	labs["nuwa.io/room"] = coordinate.Room
-	if coordinate.Cabinet != "" {
-		labs["nuwa.io/cabinet"] = coordinate.Cabinet
-	}
-	return labs, nil
-}
-
-func generateHostMatchLables(coordinate nuwav1.Coordinate) (labs client.MatchingLabels) {
-	labs = make(client.MatchingLabels)
-	if coordinate.Host != "" {
-		labs["nuwa.io/host"] = coordinate.Host
-	}
-	return labs
-}
-
-func (r *WaterReconciler) findMatchNodes(ctx context.Context, instance *nuwav1.Water) (res map[string]corev1.NodeList, err error) {
-	if len(instance.Spec.Coordinates) < 1 {
-		return nil, NoDefinedErr
-	}
-	res = make(map[string]corev1.NodeList)
-	for index := range instance.Spec.Coordinates {
-		coordinate := instance.Spec.Coordinates[index]
-		labels, err := generateCoordinateMatchLabels(coordinate)
-		if err != nil {
-			return nil, err
-		}
-		nodeList := corev1.NodeList{}
-		if err = r.Client.List(ctx, &nodeList, labels, generateHostMatchLables(coordinate)); err != nil {
-			return nil, err
-		}
-		res[fmt.Sprintf("%s-%s", coordinate.Room, coordinate.Cabinet)] = nodeList
-	}
-	return res, nil
 }
 
 func (r *WaterReconciler) SetupWithManager(mgr ctrl.Manager) error {

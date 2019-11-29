@@ -22,6 +22,7 @@ import (
 
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -39,6 +40,7 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = nuwav1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 

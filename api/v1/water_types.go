@@ -71,15 +71,21 @@ type WaterSpec struct {
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ExpectedCopies int32 `json:"expectedCopies,omitempty"`
-	AlreadyCopies  int32 `json:"alreadyCopies,omitempty"`
-
-	DeploymentStatusSlice []appsv1.DeploymentStatus `json:"deploymentStatusSlice,omitempty"`
+	ExpectedCopies int32  `json:"expectedCopies,omitempty"`
+	AlreadyCopies  int32  `json:"alreadyCopies,omitempty"`
+	DeploymentName string `json:"deploymentName,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +k8s:openapi-gen=true
 // Water is the Schema for the waters API
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=wts
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.expectedCopies,selectorpath=.status.deploymentName
+// +kubebuilder:printcolumn:name="DESIRED",type="integer",JSONPath=".spec.expectedCopies",description="The desired number of deployments."
+// +kubebuilder:printcolumn:name="CURRENT",type="integer",JSONPath=".status.alreadyCopies",description="The number of currently all deployments."
+// +kubebuilder:printcolumn:name="UPDATED",type="string",JSONPath=".status.deploymentName",description="The number of deployments updated."
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Water struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
