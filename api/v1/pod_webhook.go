@@ -19,9 +19,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
 	"github.com/golang/glog"
 	"gomodules.xyz/jsonpatch/v2"
-	"io/ioutil"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -31,9 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 const (
@@ -58,8 +59,8 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	}
 }
 
-func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
-	var matchingSPs []*Sidecar
+func filterInjectorPod(list []Injector, pod *corev1.Pod) ([]*Injector, error) {
+	var matchingIPs []*Injector
 
 	for _, sp := range list {
 		selector, err := metav1.LabelSelectorAsSelector(&sp.Spec.Selector)
@@ -69,15 +70,15 @@ func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
 
 		// check if the pod labels match the selector
 		if !selector.Matches(labels.Set(pod.Labels)) {
-			glog.V(6).Infof("SidecarPod '%s' does NOT match pod '%s' labels", sp.GetName(), pod.GetName())
+			glog.V(6).Infof("InjectorPod '%s' does NOT match pod '%s' labels", sp.GetName(), pod.GetName())
 			continue
 		}
-		glog.V(4).Infof("SidecarPod '%s' matches pod '%s' labels", sp.GetName(), pod.GetName())
+		glog.V(4).Infof("InjectorPod '%s' matches pod '%s' labels", sp.GetName(), pod.GetName())
 		// create pointer to a non-loop variable
-		newSP := sp
-		matchingSPs = append(matchingSPs, &newSP)
+		newIP := sp
+		matchingIPs = append(matchingIPs, &newIP)
 	}
-	return matchingSPs, nil
+	return matchingIPs, nil
 }
 
 //TODO: Only support Create Event,Not Support Update Event.Next version will Support it
@@ -115,53 +116,53 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 		}
 	}
 
-	list := &SidecarList{}
+	list := &InjectorList{}
 	err := p.KubeClient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
 	if meta.IsNoMatchError(err) {
 		glog.Errorf("%v (has the CRD been loaded?)", err)
 		return toAdmissionResponse(err)
 	} else if err != nil {
-		glog.Errorf("error fetching sidecar: %v", err)
+		glog.Errorf("error fetching injector: %v", err)
 		return toAdmissionResponse(err)
 	}
 
-	glog.Infof("fetched %d sidecar(s) in namespace %s", len(list.Items), pod.Namespace)
+	glog.Infof("fetched %d injector(s) in namespace %s", len(list.Items), pod.Namespace)
 	if len(list.Items) == 0 {
-		glog.V(5).Infof("No pod sidecar created, so skipping pod %v", pod.Name)
+		glog.V(5).Infof("No pod injector created, so skipping pod %v", pod.Name)
 		return &reviewResponse
 	}
 
-	matchingSPs, err := filterSidecarPod(list.Items, &pod)
+	matchingIPs, err := filterInjectorPod(list.Items, &pod)
 	if err != nil {
-		glog.Errorf("filtering pod sidecar failed: %v", err)
+		glog.Errorf("filtering pod injector  failed: %v", err)
 		return toAdmissionResponse(err)
 	}
 
-	if len(matchingSPs) == 0 {
-		glog.V(5).Infof("No matching pod presets, so skipping pod %v", pod.Name)
+	if len(matchingIPs) == 0 {
+		glog.V(5).Infof("No matching pod injector, so skipping pod %v", pod.Name)
 		return &reviewResponse
 	}
 
-	sidecarNames := make([]string, len(matchingSPs))
-	for i, sp := range matchingSPs {
+	sidecarNames := make([]string, len(matchingIPs))
+	for i, sp := range matchingIPs {
 		sidecarNames[i] = sp.GetName()
 	}
 
-	glog.V(5).Infof("Matching SP detected of count %v, patching spec", len(matchingSPs))
-	if matchingSPs[0].Spec.PreContainers != nil && matchingSPs[0].Spec.AfterContainers == nil {
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
+	glog.V(5).Infof("Matching Injector Pod detected of count %v, patching spec", len(matchingIPs))
+	if matchingIPs[0].Spec.PreContainers != nil && matchingIPs[0].Spec.AfterContainers == nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPs[0].Spec.PreContainers...)
 	}
-	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers == nil {
-		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	if matchingIPs[0].Spec.AfterContainers != nil && matchingIPs[0].Spec.PreContainers == nil {
+		podCopy.Spec.Containers = append(matchingIPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
 	}
 
-	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers != nil {
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
-		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	if matchingIPs[0].Spec.AfterContainers != nil && matchingIPs[0].Spec.PreContainers != nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPs[0].Spec.PreContainers...)
+		podCopy.Spec.Containers = append(matchingIPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
 	}
 
 	// TODO: investigate why GetGenerateName doesn't work
-	glog.Infof("applied sidecar: %s successfully on Pod: %+v ", strings.Join(sidecarNames, ","), pod.GetName())
+	glog.Infof("applied injector: %s successfully on Pod: %+v ", strings.Join(sidecarNames, ","), pod.GetName())
 
 	podCopyJSON, err := json.Marshal(podCopy)
 	if err != nil {
@@ -219,6 +220,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		response.Response = reviewResponse
 		response.Response.UID = ar.Request.UID
 	}
+	// must add api version and kind on kube16.2
 	response.APIVersion = "admission.k8s.io/v1"
 	response.Kind = "AdmissionReview"
 	// reset the Object and OldObject, they are not needed in a response.
