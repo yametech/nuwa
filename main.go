@@ -29,6 +29,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -45,14 +46,15 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func podMutatingServe() {
+func podMutatingServe(client client.Client) {
 	certFile := "ssl/tls.crt"
 	ceyFile := "ssl/tls.key"
-	http.HandleFunc("/mutating-pods", nuwav1.ServeMutatePods)
+	p := nuwav1.Pod{KubeClient: client}
+	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
 	server := &http.Server{
 		Addr: ":443",
 	}
-	glog.Infof("About to start serving webhooks: %#v", server)
+	glog.Infof("About to start serving pod webhooks: %#v", server)
 	if err := server.ListenAndServeTLS(certFile, ceyFile); err != nil {
 		panic(err)
 	}
@@ -132,9 +134,9 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-
+	c := mgr.GetClient()
 	go func() {
-		podMutatingServe()
+		podMutatingServe(c)
 	}()
 
 	setupLog.Info("starting manager")
