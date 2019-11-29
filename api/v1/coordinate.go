@@ -23,6 +23,9 @@ package v1
 //  -cabinet: CABINET-A1 /机柜名
 //  -host: HOST-DELL-01 /主机名
 //  -replicas: 2   /将发布多少个副本
+
+// +kubebuilder:object:root=false
+// +k8s:deepcopy-gen=false
 type Coordinate struct {
 	// +optional
 	Room string `json:"room,omitempty"`
