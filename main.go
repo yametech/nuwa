@@ -135,6 +135,14 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Job")
 		os.Exit(1)
 	}
+	if err = (&controllers.InjectorReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Injector"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Injector")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 	c := mgr.GetClient()
 	go func() {
