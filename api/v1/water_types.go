@@ -67,13 +67,12 @@ type WaterSpec struct {
 }
 
 // WaterStatus defines the observed state of Water
-// +kubebuilder:subresource:status
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ExpectedCopies int32  `json:"expectedCopies,omitempty"`
-	AlreadyCopies  int32  `json:"alreadyCopies,omitempty"`
-	DeploymentName string `json:"deploymentName,omitempty"`
+	Copies  int32  `json:"copies"`
+	Current int32  `json:"current"`
+	Name    string `json:"name"`
 }
 
 // +kubebuilder:object:root=true
@@ -81,10 +80,10 @@ type WaterStatus struct {
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=wts
-// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.expectedCopies,selectorpath=.status.deploymentName
-// +kubebuilder:printcolumn:name="DESIRED",type="integer",JSONPath=".spec.expectedCopies",description="The desired number of deployments."
-// +kubebuilder:printcolumn:name="CURRENT",type="integer",JSONPath=".status.alreadyCopies",description="The number of currently all deployments."
-// +kubebuilder:printcolumn:name="UPDATED",type="string",JSONPath=".status.deploymentName",description="The number of deployments updated."
+// +kubebuilder:subresource:scale:specpath=.spec.copies,statuspath=.status.current,selectorpath=.spec.selector
+// +kubebuilder:printcolumn:name="DESIRED",type="integer",JSONPath=".spec.copies",description="The desired number of deployments."
+// +kubebuilder:printcolumn:name="CURRENT",type="integer",JSONPath=".status.current",description="The number of currently all deployments."
+// +kubebuilder:printcolumn:name="UPDATED",type="string",JSONPath=".status.name",description="The number of deployments updated."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Water struct {
 	metav1.TypeMeta   `json:",inline"`

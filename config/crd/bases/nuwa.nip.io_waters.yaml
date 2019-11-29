@@ -9,15 +9,15 @@ metadata:
   name: waters.nuwa.nip.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .spec.expectedCopies
+  - JSONPath: .spec.copies
     description: The desired number of deployments.
     name: DESIRED
     type: integer
-  - JSONPath: .status.alreadyCopies
+  - JSONPath: .status.current
     description: The number of currently all deployments.
     name: CURRENT
     type: integer
-  - JSONPath: .status.deploymentName
+  - JSONPath: .status.name
     description: The number of deployments updated.
     name: UPDATED
     type: string
@@ -40,9 +40,9 @@ spec:
   scope: Namespaced
   subresources:
     scale:
-      labelSelectorPath: .status.deploymentName
-      specReplicasPath: .spec.replicas
-      statusReplicasPath: .status.expectedCopies
+      labelSelectorPath: .spec.selector
+      specReplicasPath: .spec.copies
+      statusReplicasPath: .status.current
     status: {}
   validation:
     openAPIV3Schema:
@@ -4794,17 +4794,21 @@ spec:
         status:
           description: WaterStatus defines the observed state of Water
           properties:
-            alreadyCopies:
-              format: int32
-              type: integer
-            deploymentName:
-              type: string
-            expectedCopies:
+            copies:
               description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                 of cluster Important: Run "make" to regenerate code after modifying
                 this file'
               format: int32
               type: integer
+            current:
+              format: int32
+              type: integer
+            name:
+              type: string
+          required:
+          - copies
+          - current
+          - name
           type: object
       type: object
   version: v1

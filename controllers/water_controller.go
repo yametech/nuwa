@@ -37,10 +37,6 @@ import (
 	"strings"
 )
 
-type CoordinateErr error
-
-var ErrNeedAtLeastRoom = fmt.Errorf("%s", "coordinate need to specify at least room")
-
 // WaterReconciler reconciles a Water object
 type WaterReconciler struct {
 	client.Client
@@ -52,6 +48,8 @@ func deploymentName(coordinateName string, instance *nuwav1.Water) string {
 	return fmt.Sprintf("%s-%s", instance.Name, strings.ToLower(coordinateName))
 }
 
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=waters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=waters/status,verbs=get;update;patch
 func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -62,15 +60,16 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	instance := &nuwav1.Water{}
 	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
 		if errors.IsNotFound(err) {
+			logf.Info("not found water")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	if instance.DeletionTimestamp != nil {
-		logf.Info("Resource is being deleted")
-		return ctrl.Result{}, nil
-	}
+	//if instance.DeletionTimestamp != nil {
+	//	logf.Info("Resource is being deleted")
+	//	return ctrl.Result{}, nil
+	//}
 
 	//  TODO fill logic
 	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
@@ -89,6 +88,10 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				if err := r.createDeployment(ctx, objKey, instance, &lc.Coordinate.Replicas, lc.NodeAffinity); err != nil {
 					return ctrl.Result{}, err
 				}
+				if &instance.Status == nil {
+					instance.Status = nuwav1.WaterStatus{}
+				}
+				instance.Status.Current += 1
 				if err := r.createService(ctx, instance); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -101,9 +104,6 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 			return ctrl.Result{}, err
 		}
-
-		instance.Status.AlreadyCopies += 1
-		instance.Status.ExpectedCopies = *instance.Spec.Copies
 	}
 	return ctrl.Result{}, nil
 }
@@ -233,6 +233,5 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 
 func (r *WaterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&nuwav1.Water{}).
-		Complete(r)
+		For(&nuwav1.Water{}).Owns(&appsv1.Deployment{}).Complete(r)
 }

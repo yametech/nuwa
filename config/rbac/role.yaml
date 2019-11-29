@@ -9,6 +9,26 @@ rules:
 - apiGroups:
   - nuwa.nip.io
   resources:
+  - injectors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nuwa.nip.io
+  resources:
+  - injectors/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nuwa.nip.io
+  resources:
   - jobs
   verbs:
   - create

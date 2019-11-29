@@ -14,6 +14,10 @@ const (
 	nuwaHostFlag    = "nuwa.io/host"
 )
 
+type CoordinateErr error
+
+var ErrNeedAtLeastRoom = fmt.Errorf("%s", "coordinate need to specify at least room")
+
 type coordinator struct {
 	Client       client.Client
 	Index        int
