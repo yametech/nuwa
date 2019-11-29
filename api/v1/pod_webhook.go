@@ -27,8 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -50,10 +48,8 @@ var (
 	schemePod = runtime.NewScheme()
 )
 
-// Config contains the server (the webhook) cert and key.
-type Config struct {
-	CertFile string
-	KeyFile  string
+type Pod struct {
+	KubeClient client.Client
 }
 
 func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
@@ -87,7 +83,7 @@ func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
 }
 
 //TODO: Only support Create Event,Not Support Update Event.Next version will Support it
-func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	glog.V(2).Info("Entering mutatePods in mutating webhook")
 	podResource := metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 	if ar.Request.Resource != podResource {
@@ -121,10 +117,8 @@ func mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		}
 	}
 
-	//TODO:Use kuberbuilder mgr cliet
-	crdclient := getCrdClient()
 	list := &SidecarList{}
-	err := crdclient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
+	err := p.KubeClient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
 	if meta.IsNoMatchError(err) {
 		glog.Errorf("%v (has the CRD been loaded?)", err)
 		return toAdmissionResponse(err)
@@ -201,6 +195,7 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 			body = data
 		}
 	}
+	defer r.Body.Close()
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
@@ -241,21 +236,8 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 }
 
-func ServeMutatePods(w http.ResponseWriter, r *http.Request) {
-	serve(w, r, mutatePods)
-}
-
-func getCrdClient() client.Client {
-	config, err := config.GetConfig()
-	if err != nil {
-		glog.Fatal(err)
-	}
-	crdclient, err := client.New(config, client.Options{Scheme: schemePod})
-	if err != nil {
-		glog.Fatal(err)
-	}
-
-	return crdclient
+func (p *Pod) ServeMutatePods(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, p.mutatePods)
 }
 
 func init() {
