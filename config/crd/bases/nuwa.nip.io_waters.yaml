@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: (devel)
+    controller-gen.kubebuilder.io/version: v0.2.2
   creationTimestamp: null
   name: waters.nuwa.nip.io
 spec:
@@ -36,6 +36,7 @@ spec:
     shortNames:
     - wts
     singular: water
+<<<<<<< HEAD
   preserveUnknownFields: false
   scope: Namespaced
   subresources:
@@ -44,6 +45,9 @@ spec:
       specReplicasPath: .spec.replicas
       statusReplicasPath: .status.expectedCopies
     status: {}
+=======
+  scope: ""
+>>>>>>> c256281b384caa39e57b5e731479540780d5531d
   validation:
     openAPIV3Schema:
       description: Water is the Schema for the waters API
@@ -186,8 +190,8 @@ spec:
                       properties:
                         maxSurge:
                           anyOf:
-                          - type: integer
                           - type: string
+                          - type: integer
                           description: 'The maximum number of pods that can be scheduled
                             above the desired number of pods. Value can be an absolute
                             number (ex: 5) or a percentage of desired pods (ex: 10%).
@@ -200,11 +204,10 @@ spec:
                             new ReplicaSet can be scaled up further, ensuring that
                             total number of pods running at any time during the update
                             is at most 130% of desired pods.'
-                          x-kubernetes-int-or-string: true
                         maxUnavailable:
                           anyOf:
-                          - type: integer
                           - type: string
+                          - type: integer
                           description: 'The maximum number of pods that can be unavailable
                             during the update. Value can be an absolute number (ex:
                             5) or a percentage of desired pods (ex: 10%). Absolute
@@ -217,7 +220,6 @@ spec:
                             new ReplicaSet, ensuring that the total number of pods
                             available at all times during the update is at least 70%
                             of desired pods.'
-                          x-kubernetes-int-or-string: true
                       type: object
                     type:
                       description: Type of deployment. Can be "Recreate" or "RollingUpdate".
@@ -1178,13 +1180,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Name or number of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                           scheme:
                                             description: Scheme to use for connecting
                                               to the host. Defaults to HTTP.
@@ -1204,13 +1205,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Number or name of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                         required:
                                         - port
                                         type: object
@@ -1285,13 +1285,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Name or number of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                           scheme:
                                             description: Scheme to use for connecting
                                               to the host. Defaults to HTTP.
@@ -1311,13 +1310,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Number or name of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                         required:
                                         - port
                                         type: object
@@ -1386,13 +1384,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting
                                           to the host. Defaults to HTTP.
@@ -1430,13 +1427,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                     required:
                                     - port
                                     type: object
@@ -1561,13 +1557,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting
                                           to the host. Defaults to HTTP.
@@ -1605,13 +1600,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                     required:
                                     - port
                                     type: object
@@ -2292,13 +2286,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Name or number of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                           scheme:
                                             description: Scheme to use for connecting
                                               to the host. Defaults to HTTP.
@@ -2318,13 +2311,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Number or name of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                         required:
                                         - port
                                         type: object
@@ -2399,13 +2391,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Name or number of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                           scheme:
                                             description: Scheme to use for connecting
                                               to the host. Defaults to HTTP.
@@ -2425,13 +2416,12 @@ spec:
                                             type: string
                                           port:
                                             anyOf:
-                                            - type: integer
                                             - type: string
+                                            - type: integer
                                             description: Number or name of the port
                                               to access on the container. Number must
                                               be in the range 1 to 65535. Name must
                                               be an IANA_SVC_NAME.
-                                            x-kubernetes-int-or-string: true
                                         required:
                                         - port
                                         type: object
@@ -2500,13 +2490,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting
                                           to the host. Defaults to HTTP.
@@ -2544,13 +2533,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                     required:
                                     - port
                                     type: object
@@ -2675,13 +2663,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Name or number of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                       scheme:
                                         description: Scheme to use for connecting
                                           to the host. Defaults to HTTP.
@@ -2719,13 +2706,12 @@ spec:
                                         type: string
                                       port:
                                         anyOf:
-                                        - type: integer
                                         - type: string
+                                        - type: integer
                                         description: Number or name of the port to
                                           access on the container. Number must be
                                           in the range 1 to 65535. Name must be an
                                           IANA_SVC_NAME.
-                                        x-kubernetes-int-or-string: true
                                     required:
                                     - port
                                     type: object
@@ -4714,8 +4700,8 @@ spec:
                         type: string
                       targetPort:
                         anyOf:
-                        - type: integer
                         - type: string
+                        - type: integer
                         description: 'Number or name of the port to access on the
                           pods targeted by the service. Number must be in the range
                           1 to 65535. Name must be an IANA_SVC_NAME. If this is a
@@ -4725,7 +4711,6 @@ spec:
                           is ignored for services with clusterIP=None, and should
                           be omitted or set equal to the ''port'' field. More info:
                           https://kubernetes.io/docs/concepts/services-networking/service/#defining-a-service'
-                        x-kubernetes-int-or-string: true
                     required:
                     - port
                     type: object

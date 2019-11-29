@@ -18,16 +18,10 @@ package v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ResourceType string
-
-const (
-	WaterCRD ResourceType = "Water"
-	StoneCRD ResourceType = "Stone"
-)
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -38,31 +32,18 @@ type SidecarSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// PodPresetSpec extned PodPreset
-	//Containers   []corev1.Container `json:"containers,omitempty"`
-	//ResourceType ResourceType       `json:"resourceType,omitempty"`
-	//NameSpace    string             `json:"namespace,omitempty"`
-	//Name         string             `json:"name,omitempty"`
+	PreContainers []corev1.Container `json:"preContainers,omitempty"`
+
+	AfterContainers []corev1.Container `json:"afterContainers,omitempty"`
+
+	ResourceType string `json:"resourceType,omitempty"`
+
+	NameSpace string `json:"namespace,omitempty"`
+
+	Name string `json:"name,omitempty"`
 	// Selector is a label query over a set of resources, in this case pods.
 	// Required.
 	Selector metav1.LabelSelector `json:"selector"`
-
-	// Env defines the collection of EnvVar to inject into containers.
-	// +optional
-	Env []v1.EnvVar `json:"env,omitempty"`
-
-	// EnvFrom defines the collection of EnvFromSource to inject into containers.
-	// +optional
-	EnvFrom []v1.EnvFromSource `json:"envFrom,omitempty"`
-
-	// Volumes defines the collection of Volume to inject into the pod.
-	// +optional
-	Volumes []v1.Volume `json:"volumes,omitempty"`
-
-	// VolumeMounts defines the collection of VolumeMount to inject into containers.
-	// +optional
-	VolumeMounts []v1.VolumeMount `json:"volumeMounts,omitempty"`
-
-	Pod *corev1.Pod `json:"pod,omitempty"`
 }
 
 // SidecarStatus defines the observed state of Sidecar

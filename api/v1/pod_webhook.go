@@ -1,0 +1,252 @@
+/*
+Copyright 2019 yametech.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+package v1
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
+	"gomodules.xyz/jsonpatch/v2"
+	"k8s.io/apimachinery/pkg/api/meta"
+
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/golang/glog"
+	"k8s.io/api/admission/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kscheme "k8s.io/client-go/kubernetes/scheme"
+)
+
+const (
+	annotationPrefix = "sidecar.admission.nuwav1.io"
+)
+
+var (
+	schemePod = runtime.NewScheme()
+)
+
+type Pod struct {
+	KubeClient client.Client
+}
+
+func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
+	return &v1beta1.AdmissionResponse{
+		Result: &metav1.Status{
+			Message: err.Error(),
+		},
+	}
+}
+
+func filterSidecarPod(list []Sidecar, pod *corev1.Pod) ([]*Sidecar, error) {
+	var matchingSPs []*Sidecar
+
+	for _, sp := range list {
+		selector, err := metav1.LabelSelectorAsSelector(&sp.Spec.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("label selector conversion failed: %v for selector: %v", sp.Spec.Selector, err)
+		}
+
+		// check if the pod labels match the selector
+		if !selector.Matches(labels.Set(pod.Labels)) {
+			glog.V(6).Infof("SidecarPod '%s' does NOT match pod '%s' labels", sp.GetName(), pod.GetName())
+			continue
+		}
+		glog.V(4).Infof("SidecarPod '%s' matches pod '%s' labels", sp.GetName(), pod.GetName())
+		// create pointer to a non-loop variable
+		newSP := sp
+		matchingSPs = append(matchingSPs, &newSP)
+	}
+	return matchingSPs, nil
+}
+
+//TODO: Only support Create Event,Not Support Update Event.Next version will Support it
+func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	glog.V(2).Info("Entering mutatePods in mutating webhook")
+	podResource := metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	if ar.Request.Resource != podResource {
+		glog.Errorf("expect resource to be %s", podResource)
+		return nil
+	}
+
+	raw := ar.Request.Object.Raw
+	pod := corev1.Pod{}
+	deserializer := serializer.NewCodecFactory(
+		runtime.NewScheme(),
+	).UniversalDeserializer()
+	if _, _, err := deserializer.Decode(raw, nil, &pod); err != nil {
+		glog.Error(err)
+		return toAdmissionResponse(err)
+	}
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	podCopy := pod.DeepCopy()
+	glog.V(6).Infof("Examining pod: %v\n", pod.GetName())
+
+	// Ignore if exclusion annotation is present
+	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {
+		glog.V(5).Infof("Looking at pod annotations, found: %v", podAnnotations)
+		//TODO: when Update Event,should be check it
+		//if podAnnotations[fmt.Sprintf("%s/exclude", annotationPrefix)] == "true" {
+		//	return &reviewResponse
+		//}
+		if _, isMirrorPod := podAnnotations[corev1.MirrorPodAnnotationKey]; isMirrorPod {
+			return &reviewResponse
+		}
+	}
+
+	list := &SidecarList{}
+	err := p.KubeClient.List(context.TODO(), list, &client.ListOptions{Namespace: pod.Namespace})
+	if meta.IsNoMatchError(err) {
+		glog.Errorf("%v (has the CRD been loaded?)", err)
+		return toAdmissionResponse(err)
+	} else if err != nil {
+		glog.Errorf("error fetching sidecar: %v", err)
+		return toAdmissionResponse(err)
+	}
+
+	glog.Infof("fetched %d sidecar(s) in namespace %s", len(list.Items), pod.Namespace)
+	if len(list.Items) == 0 {
+		glog.V(5).Infof("No pod sidecar created, so skipping pod %v", pod.Name)
+		return &reviewResponse
+	}
+
+	matchingSPs, err := filterSidecarPod(list.Items, &pod)
+	if err != nil {
+		glog.Errorf("filtering pod sidecar failed: %v", err)
+		return toAdmissionResponse(err)
+	}
+
+	if len(matchingSPs) == 0 {
+		glog.V(5).Infof("No matching pod presets, so skipping pod %v", pod.Name)
+		return &reviewResponse
+	}
+
+	sidecarNames := make([]string, len(matchingSPs))
+	for i, sp := range matchingSPs {
+		sidecarNames[i] = sp.GetName()
+	}
+
+	glog.V(5).Infof("Matching SP detected of count %v, patching spec", len(matchingSPs))
+	if matchingSPs[0].Spec.PreContainers != nil && matchingSPs[0].Spec.AfterContainers == nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
+	}
+	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers == nil {
+		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	}
+
+	if matchingSPs[0].Spec.AfterContainers != nil && matchingSPs[0].Spec.PreContainers != nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingSPs[0].Spec.PreContainers...)
+		podCopy.Spec.Containers = append(matchingSPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	}
+
+	// TODO: investigate why GetGenerateName doesn't work
+	glog.Infof("applied sidecar: %s successfully on Pod: %+v ", strings.Join(sidecarNames, ","), pod.GetName())
+
+	podCopyJSON, err := json.Marshal(podCopy)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	podJSON, err := json.Marshal(pod)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	jsonPatch, err := jsonpatch.CreatePatch(podJSON, podCopyJSON)
+	if err != nil {
+		return toAdmissionResponse(err)
+	}
+	jsonPatchBytes, _ := json.Marshal(jsonPatch)
+
+	reviewResponse.Patch = jsonPatchBytes
+	pt := v1beta1.PatchTypeJSONPatch
+	reviewResponse.PatchType = &pt
+
+	return &reviewResponse
+}
+
+type admitFunc func(v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+
+func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
+	var body []byte
+	if r.Body != nil {
+		if data, err := ioutil.ReadAll(r.Body); err == nil {
+			body = data
+		}
+	}
+	defer r.Body.Close()
+
+	// verify the content type is accurate
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		glog.Errorf("contentType=%s, expect application/json", contentType)
+		return
+	}
+
+	var reviewResponse *v1beta1.AdmissionResponse
+	ar := v1beta1.AdmissionReview{}
+	deserializer := serializer.NewCodecFactory(
+		runtime.NewScheme(),
+	).UniversalDeserializer()
+	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+		glog.Error(err)
+		reviewResponse = toAdmissionResponse(err)
+	} else {
+		reviewResponse = admit(ar)
+	}
+
+	response := v1beta1.AdmissionReview{}
+	if reviewResponse != nil {
+		response.Response = reviewResponse
+		response.Response.UID = ar.Request.UID
+	}
+	response.APIVersion = "admission.k8s.io/v1"
+	response.Kind = "AdmissionReview"
+	// reset the Object and OldObject, they are not needed in a response.
+	//ar.Request.Object = runtime.RawExtension{}
+	//ar.Request.OldObject = runtime.RawExtension{}
+
+	resp, err := json.Marshal(response)
+	if err != nil {
+		glog.Error(err)
+	}
+	if _, err := w.Write(resp); err != nil {
+		glog.Error(err)
+	}
+}
+
+func (p *Pod) ServeMutatePods(w http.ResponseWriter, r *http.Request) {
+	serve(w, r, p.mutatePods)
+}
+
+func init() {
+	addToSchemea(schemePod)
+}
+
+func addToSchemea(scheme *runtime.Scheme) {
+	_ = extapi.AddToScheme(scheme)
+	_ = kscheme.AddToScheme(scheme)
+	_ = AddToScheme(scheme)
+}

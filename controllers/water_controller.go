@@ -103,6 +103,7 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		instance.Status.AlreadyCopies += 1
+		instance.Status.ExpectedCopies = *instance.Spec.Copies
 	}
 	return ctrl.Result{}, nil
 }

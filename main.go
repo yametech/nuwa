@@ -18,7 +18,10 @@ package main
 
 import (
 	"flag"
+	"net/http"
 	"os"
+
+	"github.com/golang/glog"
 
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
@@ -27,6 +30,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -42,6 +46,20 @@ func init() {
 	_ = nuwav1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+}
+
+func podMutatingServe(client client.Client) {
+	certFile := "ssl/tls.crt"
+	ceyFile := "ssl/tls.key"
+	p := nuwav1.Pod{KubeClient: client}
+	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
+	server := &http.Server{
+		Addr: ":443",
+	}
+	glog.Infof("About to start serving pod webhooks: %#v", server)
+	if err := server.ListenAndServeTLS(certFile, ceyFile); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -93,18 +111,18 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
 		os.Exit(1)
 	}
-	//if err = (&controllers.SidecarReconciler{
-	//	Client: mgr.GetClient(),
-	//	Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
-	//	Scheme: mgr.GetScheme(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
-	//	os.Exit(1)
-	//}
-	//if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
-	//	os.Exit(1)
-	//}
+	if err = (&controllers.SidecarReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Sidecar"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Sidecar")
+		os.Exit(1)
+	}
+	if err = (&nuwav1.Sidecar{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Sidecar")
+		os.Exit(1)
+	}
 	if err = (&controllers.JobReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Job"),
@@ -118,6 +136,10 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+	c := mgr.GetClient()
+	go func() {
+		podMutatingServe(c)
+	}()
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
