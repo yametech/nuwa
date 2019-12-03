@@ -9,26 +9,6 @@ rules:
 - apiGroups:
   - nuwa.nip.io
   resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - nuwa.nip.io
-  resources:
-  - jobs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - nuwa.nip.io
-  resources:
   - stones
   verbs:
   - create

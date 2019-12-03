@@ -36,6 +36,8 @@ import (
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 )
 
+const annotationPrefix = "injector.admission.nuwav1.io"
+
 // InjectorReconciler reconciles a Injector object
 type InjectorReconciler struct {
 	client.Client
