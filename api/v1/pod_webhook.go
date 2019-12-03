@@ -132,34 +132,52 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 		return &reviewResponse
 	}
 
-	matchingIPs, err := filterInjectorPod(list.Items, &pod)
+	matchingIPods, err := filterInjectorPod(list.Items, &pod)
 	if err != nil {
 		glog.Errorf("filtering pod injector  failed: %v", err)
 		return toAdmissionResponse(err)
 	}
 
-	if len(matchingIPs) == 0 {
+	if len(matchingIPods) == 0 {
 		glog.V(5).Infof("No matching pod injector, so skipping pod %v", pod.Name)
 		return &reviewResponse
 	}
 
-	sidecarNames := make([]string, len(matchingIPs))
-	for i, sp := range matchingIPs {
+	sidecarNames := make([]string, len(matchingIPods))
+	for i, sp := range matchingIPods {
 		sidecarNames[i] = sp.GetName()
 	}
 
-	glog.V(5).Infof("Matching Injector Pod detected of count %v, patching spec", len(matchingIPs))
-	if matchingIPs[0].Spec.PreContainers != nil && matchingIPs[0].Spec.AfterContainers == nil {
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPs[0].Spec.PreContainers...)
+	glog.V(5).Infof("Matching Injector Pod detected of count %v, patching spec", len(matchingIPods))
+	if matchingIPods[0].Spec.PreContainers != nil && matchingIPods[0].Spec.AfterContainers == nil {
+		podCopy.Spec.Containers = append(matchingIPods[0].Spec.PreContainers, podCopy.Spec.Containers...)
 	}
-	if matchingIPs[0].Spec.AfterContainers != nil && matchingIPs[0].Spec.PreContainers == nil {
-		podCopy.Spec.Containers = append(matchingIPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	if matchingIPods[0].Spec.AfterContainers != nil && matchingIPods[0].Spec.PreContainers == nil {
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPods[0].Spec.AfterContainers...)
 	}
 
-	if matchingIPs[0].Spec.AfterContainers != nil && matchingIPs[0].Spec.PreContainers != nil {
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPs[0].Spec.PreContainers...)
-		podCopy.Spec.Containers = append(matchingIPs[0].Spec.AfterContainers, podCopy.Spec.Containers...)
+	if matchingIPods[0].Spec.AfterContainers != nil && matchingIPods[0].Spec.PreContainers != nil {
+		podCopy.Spec.Containers = append(matchingIPods[0].Spec.PreContainers, podCopy.Spec.Containers...)
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPods[0].Spec.AfterContainers...)
 	}
+	var volumes []corev1.Volume
+	if matchingIPods[0].Spec.Volumes != nil {
+		if podCopy.Spec.Volumes != nil {
+			for _, podCopyv := range podCopy.Spec.Volumes {
+				for _, matchingIPodv := range matchingIPods[0].Spec.Volumes {
+					//if the volume name same, not update it.
+					if podCopyv.Name == matchingIPodv.Name {
+						continue
+					}
+					volumes = append(volumes, matchingIPodv)
+				}
+			}
+		} else {
+			volumes = append(podCopy.Spec.Volumes, matchingIPods[0].Spec.Volumes...)
+		}
+
+	}
+	podCopy.Spec.Volumes = volumes
 
 	// TODO: investigate why GetGenerateName doesn't work
 	glog.Infof("applied injector: %s successfully on Pod: %+v ", strings.Join(sidecarNames, ","), pod.GetName())

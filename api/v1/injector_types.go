@@ -18,6 +18,7 @@ package v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,6 +39,9 @@ type InjectorSpec struct {
 	NameSpace string `json:"namespace,omitempty"`
 
 	Name string `json:"name,omitempty"`
+
+	Volumes []v1.Volume `json:"volumes,omitempty"`
+
 	// Selector is a label query over a set of resources, in this case pods.
 	// Required.
 	Selector metav1.LabelSelector `json:"selector"`
