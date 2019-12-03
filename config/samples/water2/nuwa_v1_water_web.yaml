@@ -3,22 +3,16 @@ kind: Water
 metadata:
   name: water-sample-2
 spec:
-  copies: 5
   strategy: Alpha
-  deploy:
-    selector:
-      matchLabels:
+  template:
+    metadata:
+      name: sample
+      labels:
         app: water-sample-2
-    template:
-      metadata:
-        name: sample
-        labels:
-          app: water-sample-2
-      spec:
-        containers:
-          - name: cn-0
-            image: nginx:latest
-
+    spec:
+      containers:
+        - name: cn-0
+          image: nginx:latest
   service:
     ports:
       - name: default-web-port
@@ -33,13 +27,13 @@ spec:
       replicas: 1
     - room: A
       cabinet: S-02
-      host: node2
-      replicas: 1
-    - room: B
-      cabinet: W-01
       host: node3
       replicas: 1
     - room: B
-      cabinet: S-02
+      cabinet: W-01
       host: node4
-      replicas: 3
+      replicas: 1
+    - room: B
+      cabinet: S-02
+      host: node5
+      replicas: 1

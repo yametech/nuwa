@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,9 +36,8 @@ const (
 type WaterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	// Copies.
-	// +optional
-	Copies *int32 `json:"copies,omitempty"`
+	// Template describes the pods that will be created.
+	Template corev1.PodTemplateSpec `json:"template"`
 	// Strategy
 	// @Alpha : Only one node that meets expectations is selected to publish 1 application
 	// @Beta  : All node that meets expectations is selected to publish each node 1 application
@@ -47,43 +45,37 @@ type WaterSpec struct {
 	// +optional
 	// +patchStrategy=retainKeys
 	// +patchMergeKey=type
-	Strategy StrategyType `json:"strategy,omitempty"`
+	Strategy StrategyType `json:"strategy"`
 	// Identify the deployment status expected by the current resource
 	// Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
 	// +optional
-	// +patchStrategy=retainKeys
-	// +patchMergeKey=type
 	Coordinates []Coordinate `json:"coordinates,omitempty"`
-	// Identify the deployment expose expected by the current resource
+	// Identify the deployment service expected by the current resource
 	// +optional
-	// +patchStrategy=retainKeys
-	// +patchMergeKey=type
-	AutoExpose bool `json:"autoExpose,omitempty"`
-	//// Identify the deployment service expected by the current resource
-	//// +optional
 	Service corev1.ServiceSpec `json:"service,omitempty"`
-	// +optional
-	Deploy appsv1.DeploymentSpec `json:"deploy,omitempty"`
 }
 
 // WaterStatus defines the observed state of Water
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Copies  int32  `json:"copies"`
-	Current int32  `json:"current"`
-	Name    string `json:"name"`
+	// desired number of pods
+	Desired int32 `json:"desired"`
+	// already replicas number of pods
+	Replicas int32 `json:"replicas"`
 }
+
+/*
+	kubebuilder:subresource:scale:specpath=.spec.copies,statuspath=.status.current,selectorpath=.spec.selector
+*/
 
 // +kubebuilder:object:root=true
 // +k8s:openapi-gen=true
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=wts
-// +kubebuilder:subresource:scale:specpath=.spec.copies,statuspath=.status.current,selectorpath=.spec.selector
-// +kubebuilder:printcolumn:name="DESIRED",type="integer",JSONPath=".spec.copies",description="The desired number of deployments."
-// +kubebuilder:printcolumn:name="CURRENT",type="integer",JSONPath=".status.current",description="The number of currently all deployments."
-// +kubebuilder:printcolumn:name="UPDATED",type="string",JSONPath=".status.name",description="The number of deployments updated."
+// +kubebuilder:printcolumn:name="DESIRED",type="integer",JSONPath=".status.desired",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="REPLICAS",type="integer",JSONPath=".status.replicas",description="The already replicas number of pods."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Water struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -60,38 +60,36 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	instance := &nuwav1.Water{}
 	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
 		if errors.IsNotFound(err) {
-			logf.Info("not found water")
+			// ignore not found error
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	//if instance.DeletionTimestamp != nil {
-	//	logf.Info("Resource is being deleted")
-	//	return ctrl.Result{}, nil
-	//}
+	// 1.查询所有的子资源是否已经存在
+	// 2.确定需要更新/发布的子资源
 
+	if instance.Annotations != nil {
+		instance.Annotations = make(map[string]string)
+	}
 	//  TODO fill logic
+	// 比较coordinates的定义及内容,执行增删改
 	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	for i := range coordinators {
-		lc := coordinators[i]
-		logf.Info("deployment for", "coordinate", lc.Name)
+		local := coordinators[i]
+		logf.Info("deployment for", "coordinate", local.Name)
 
-		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(lc.Name, instance)}
+		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(local.Name, instance)}
 		deployment := &appsv1.Deployment{}
 		if err := r.Client.Get(ctx, objKey, deployment); err != nil {
 			if errors.IsNotFound(err) {
-				if err := r.createDeployment(ctx, objKey, instance, &lc.Coordinate.Replicas, lc.NodeAffinity); err != nil {
+				if err := r.createDeployment(ctx, objKey, instance, &local.Coordinate.Replicas, local.NodeAffinity); err != nil {
 					return ctrl.Result{}, err
 				}
-				if &instance.Status == nil {
-					instance.Status = nuwav1.WaterStatus{}
-				}
-				instance.Status.Current += 1
 				if err := r.createService(ctx, instance); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -104,6 +102,8 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 			return ctrl.Result{}, err
 		}
+		data, _ := json.Marshal(instance)
+		logf.Info("instance", "data", data)
 	}
 	return ctrl.Result{}, nil
 }
@@ -122,23 +122,17 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
 	logf := r.Log.WithValues("water create service", objectKey, "namespace", nameSpace)
 
+	serviceSpec := instance.Spec.Service.DeepCopy()
+	serviceSpec.Selector = map[string]string{"app": instance.Name}
+
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
-					Group:   nuwav1.GroupVersion.Group,
-					Version: nuwav1.GroupVersion.Version,
-					Kind:    "Water"}),
-			},
+			Name:            instance.Name,
+			Namespace:       instance.Namespace,
+			OwnerReferences: ownerReference(instance, "Water"),
 		},
-		Spec: corev1.ServiceSpec{
-			Type:     instance.Spec.Service.Type,
-			Ports:    instance.Spec.Service.Ports,
-			Selector: map[string]string{"app": instance.Name},
-		},
+		Spec: *serviceSpec,
 	}
 
 	if err := r.Client.Get(ctx, objectKey, service); err != nil {
@@ -164,60 +158,67 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, deployName types
 
 	labels := map[string]string{"app": instance.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
+	newTemplate := instance.Spec.Template.DeepCopy()
 	if nodeAffinity != nil {
-		instance.Spec.Deploy.Template.Spec.Affinity = &corev1.Affinity{
+		newTemplate.Spec.Affinity = &corev1.Affinity{
 			NodeAffinity: nodeAffinity,
 		}
 	}
 
-	newDeploy := &appsv1.Deployment{
+	newDeployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      deployName.Name,
-			Namespace: deployName.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance,
-					schema.GroupVersionKind{
-						Group:   nuwav1.GroupVersion.Group,
-						Version: nuwav1.GroupVersion.Version,
-						Kind:    "Water",
-					}),
-			},
+			Name:            deployName.Name,
+			Namespace:       deployName.Namespace,
+			OwnerReferences: ownerReference(instance, "Water"),
 		},
+
 		Spec: appsv1.DeploymentSpec{
 			Replicas: size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       instance.Spec.Deploy.Template.Spec,
+				Spec:       newTemplate.Spec,
 			},
 			Selector: selector,
 		},
 	}
 
-	if err := r.Client.Create(ctx, newDeploy); err != nil {
+	if err := r.Client.Create(ctx, newDeployment); err != nil {
 		return err
 	}
 	// Set Deployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, newDeploy, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, newDeployment, r.Scheme); err != nil {
 		return err
 	}
 
-	oldDeploy := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, deployName, oldDeploy); err != nil {
-		if !errors.IsNotFound(err) {
-			oldDeploy.Spec = newDeploy.Spec
-			if err := r.Client.Update(ctx, oldDeploy); err != nil {
-				return err
-			}
-		}
-	}
+	// 记录当前deployement信息
+	//var data []byte
+	//newDeployment.MarshalTo(data)
+	//logf.Info("Create deployment", "name", deployName.Name, "data", data)
 
 	logf.Info("Create deployment", "status", "done!!!")
 	return nil
 }
 
+func (r *WaterReconciler) updateDeployment(deployName types.NamespacedName, newDeployment *appsv1.Deployment) error {
+	oldDeployment := &appsv1.Deployment{}
+	if err := r.Client.Get(context.TODO(), deployName, oldDeployment); err != nil {
+		if !errors.IsNotFound(err) {
+			oldDeployment.Spec = newDeployment.Spec
+			if err := r.Client.Update(context.TODO(), oldDeployment); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
+	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
 	old := &nuwav1.Water{}
+	if err := r.Client.Get(ctx, objectKey, old); err != nil {
+		return err
+	}
 	if err := json.Unmarshal([]byte(instance.Annotations["spec"]), old); err != nil {
 		return err
 	}
@@ -228,10 +229,24 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (r *WaterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&nuwav1.Water{}).Owns(&appsv1.Deployment{}).Complete(r)
+		For(&nuwav1.Water{}).
+		Owns(&appsv1.Deployment{}).
+		Complete(r)
+}
+
+func ownerReference(obj metav1.Object, kindName string) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		*metav1.NewControllerRef(obj,
+			schema.GroupVersionKind{
+				Group:   nuwav1.GroupVersion.Group,
+				Version: nuwav1.GroupVersion.Version,
+				Kind:    kindName,
+			}),
+	}
 }

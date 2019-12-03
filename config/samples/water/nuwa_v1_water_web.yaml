@@ -3,22 +3,16 @@ kind: Water
 metadata:
   name: water-sample
 spec:
-  copies: 5
   strategy: Alpha
-  deploy:
-    selector:
-      matchLabels:
+  template:
+    metadata:
+      name: sample
+      labels:
         app: water-sample
-    template:
-      metadata:
-        name: sample
-        labels:
-          app: water-sample
-      spec:
-        containers:
-          - name: cn-0
-            image: nginx:latest
-
+    spec:
+      containers:
+        - name: cn-0
+          image: nginx:latest
   service:
     ports:
       - name: default-web-port
