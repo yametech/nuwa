@@ -9,13 +9,21 @@ metadata:
   name: waters.nuwa.nip.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.desired
+  - JSONPath: .status.desired_replicas
     description: The desired number of pods.
-    name: DESIRED
+    name: DESIRED-REPLICAS
     type: integer
-  - JSONPath: .status.replicas
-    description: The already replicas number of pods.
-    name: REPLICAS
+  - JSONPath: .status.already_replicas
+    description: The desired number of pods.
+    name: ALREADY-REPLICAS
+    type: integer
+  - JSONPath: .status.desired_deployments
+    description: The desired number of deployments.
+    name: DESIRED-DEPLOYMENTS
+    type: integer
+  - JSONPath: .status.already_deployment
+    description: The already replicas number of deployments.
+    name: ALREADY-DEPLOYMENTS
     type: integer
   - JSONPath: .metadata.creationTimestamp
     description: CreationTimestamp is a timestamp representing the server time when
@@ -4464,19 +4472,26 @@ spec:
         status:
           description: WaterStatus defines the observed state of Water
           properties:
-            desired:
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "make" to regenerate code after modifying
-                this file desired number of pods'
+            already_deployment:
               format: int32
               type: integer
-            replicas:
-              description: already replicas number of pods
+            already_replicas:
+              format: int32
+              type: integer
+            desired_deployments:
+              format: int32
+              type: integer
+            desired_replicas:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "make" to regenerate code after modifying
+                this file'
               format: int32
               type: integer
           required:
-          - desired
-          - replicas
+          - already_deployment
+          - already_replicas
+          - desired_deployments
+          - desired_replicas
           type: object
       type: object
   version: v1

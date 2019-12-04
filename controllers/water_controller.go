@@ -33,7 +33,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 )
 
@@ -66,55 +65,69 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	// 1.查询所有的子资源是否已经存在
-	// 2.确定需要更新/发布的子资源
-
-	if instance.Annotations != nil {
-		instance.Annotations = make(map[string]string)
-	}
 	//  TODO fill logic
-	// 比较coordinates的定义及内容,执行增删改
 	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	instance.Status.DesiredDeployments = int32(len(coordinators))
+	instance.Status.DesiredReplicas = 0
+
 	for i := range coordinators {
 		local := coordinators[i]
-		logf.Info("deployment for", "coordinate", local.Name)
+		logf.Info("Reconcile coordinate", "coordinate", local.Name)
 
-		objKey := types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(local.Name, instance)}
-		deployment := &appsv1.Deployment{}
-		if err := r.Client.Get(ctx, objKey, deployment); err != nil {
-			if errors.IsNotFound(err) {
-				if err := r.createDeployment(ctx, objKey, instance, &local.Coordinate.Replicas, local.NodeAffinity); err != nil {
-					return ctrl.Result{}, err
-				}
-				if err := r.createService(ctx, instance); err != nil {
-					return ctrl.Result{}, err
-				}
-				// Annotations
-				r.annotation(instance)
-				if err := r.Client.Update(context.TODO(), instance); err != nil {
-					return reconcile.Result{}, err
-				}
-				return ctrl.Result{}, nil
+		instance.Status.DesiredReplicas += local.Coordinate.Replicas
+		size := int32(1)
+
+		switch instance.Spec.Strategy {
+		case nuwav1.Alpha:
+			if local.Index > 0 { // 大于1
+				continue
 			}
+			logf.Info("Water deploy strategy is Alpha")
+		case nuwav1.Beta:
+			logf.Info("Water deploy strategy is Beta")
+		case nuwav1.Release:
+			size = local.Coordinate.Replicas
+			logf.Info("Water deploy strategy is Release")
+		}
+
+		if err := r.updateDeployment(ctx, types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(local.Name, instance)},
+			instance, &size, local.NodeAffinity); err != nil {
 			return ctrl.Result{}, err
 		}
-		data, _ := json.Marshal(instance)
-		logf.Info("instance", "data", data)
+		if err := r.createService(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
-	return ctrl.Result{}, nil
+	logf.Info("annotation water")
+	if err := r.annotationWater(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+	logf.Info("update water")
+	if err := r.updateWater(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, r.Status().Update(ctx, instance)
 }
 
-func (r *WaterReconciler) annotation(instance *nuwav1.Water) {
-	data, _ := json.Marshal(instance.Spec)
+func (r *WaterReconciler) annotationWater(ctx context.Context, instance *nuwav1.Water) error {
+	data, err := json.Marshal(instance.Spec)
+	if err != nil {
+		return err
+	}
 	if instance.Annotations != nil {
 		instance.Annotations["spec"] = string(data)
 	} else {
 		instance.Annotations = map[string]string{"spec": string(data)}
 	}
+	if err := r.Client.Update(ctx, instance); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
@@ -135,23 +148,22 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 		Spec: *serviceSpec,
 	}
 
-	if err := r.Client.Get(ctx, objectKey, service); err != nil {
+	logf.Info("Create service", "service", instance.Name)
+	err := r.Client.Get(ctx, objectKey, service)
+	if err != nil {
 		if errors.IsNotFound(err) {
 			if err = r.Client.Create(ctx, service); err != nil {
 				return err
 			}
-		} else if errors.IsAlreadyExists(err) {
-			logf.Info("Service", "status", "already exists")
-		} else {
-			return err
+			return nil
 		}
+		return err
 	}
 
-	logf.Info("Create service", "status", "done!!!")
 	return nil
 }
 
-func (r *WaterReconciler) createDeployment(ctx context.Context, deployName types.NamespacedName, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
+func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types.NamespacedName, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
 	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
 	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
 	logf := r.Log.WithValues("water create deployment", objectKey, "namespace", nameSpace)
@@ -183,48 +195,44 @@ func (r *WaterReconciler) createDeployment(ctx context.Context, deployName types
 		},
 	}
 
-	if err := r.Client.Create(ctx, newDeployment); err != nil {
-		return err
-	}
-	// Set Deployment instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, newDeployment, r.Scheme); err != nil {
-		return err
-	}
-
-	// 记录当前deployement信息
-	//var data []byte
-	//newDeployment.MarshalTo(data)
-	//logf.Info("Create deployment", "name", deployName.Name, "data", data)
-
-	logf.Info("Create deployment", "status", "done!!!")
-	return nil
-}
-
-func (r *WaterReconciler) updateDeployment(deployName types.NamespacedName, newDeployment *appsv1.Deployment) error {
 	oldDeployment := &appsv1.Deployment{}
-	if err := r.Client.Get(context.TODO(), deployName, oldDeployment); err != nil {
-		if !errors.IsNotFound(err) {
-			oldDeployment.Spec = newDeployment.Spec
-			if err := r.Client.Update(context.TODO(), oldDeployment); err != nil {
+	if err := r.Client.Get(ctx, deployName, oldDeployment); err != nil {
+		if errors.IsNotFound(err) {
+			if err := r.Client.Create(ctx, newDeployment); err != nil {
 				return err
 			}
+			// Set Deployment instance as the owner and controller
+			if err := controllerutil.SetControllerReference(instance, newDeployment, r.Scheme); err != nil {
+				return err
+			}
+			instance.Status.AlreadyDeployment++
+			instance.Status.AlreadyReplicas += *size
+			return nil
 		}
+		return err
 	}
+
+	if *oldDeployment.Spec.Replicas != *size {
+		instance.Status.AlreadyReplicas = instance.Status.AlreadyReplicas - *oldDeployment.Spec.Replicas
+		oldDeployment.Spec.Replicas = size
+		if err := r.Client.Update(ctx, oldDeployment); err != nil {
+			return err
+		}
+		instance.Status.AlreadyReplicas += *size
+	}
+	logf.Info("Create deployment done")
+
 	return nil
 }
 
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
-	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
 	old := &nuwav1.Water{}
-	if err := r.Client.Get(ctx, objectKey, old); err != nil {
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: instance.Namespace, Name: instance.Name}, old); err != nil {
 		return err
 	}
-	if err := json.Unmarshal([]byte(instance.Annotations["spec"]), old); err != nil {
-		return err
-	}
-	if !reflect.DeepEqual(instance.Spec, old.Spec) {
-		// Update associated resources
+	if !reflect.DeepEqual(old.Spec, instance.Spec) {
 		old.Spec = instance.Spec
+		old.Annotations = instance.Annotations
 		if err := r.Client.Update(ctx, old); err != nil {
 			return err
 		}
