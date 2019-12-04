@@ -83,7 +83,7 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		switch instance.Spec.Strategy {
 		case nuwav1.Alpha:
-			if local.Index > 0 { // 大于1
+			if local.Index > 0 {
 				continue
 			}
 			logf.Info("Water deploy strategy is Alpha")
