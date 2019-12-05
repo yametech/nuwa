@@ -11,3 +11,6 @@ advanced statefulset manager
 
 ## Injector
  is injector
+
+ ## Install
+ `k c -f https://github.com/yametech/nuwa/releases/download/v0.1/nuwa.yaml`
