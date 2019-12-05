@@ -224,15 +224,15 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 		}
 	}
 
-	exceptStatus := nuwav1.WaterStatus{}
+	expectStatus := nuwav1.WaterStatus{}
 	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
 		return err
 	}
-	exceptStatus.DesiredDeployments = int32(len(coordinators))
+	expectStatus.DesiredDeployments = int32(len(coordinators))
 	for i := range coordinators {
 		local := coordinators[i]
-		exceptStatus.DesiredReplicas += local.Coordinate.Replicas
+		expectStatus.DesiredReplicas += local.Coordinate.Replicas
 		objKey := types.NamespacedName{Namespace: instance.Namespace, Name: deploymentName(local.Name, instance)}
 		tmp := &appsv1.Deployment{}
 		if err := r.Client.Get(ctx, objKey, tmp); err != nil {
@@ -241,12 +241,12 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 			}
 			return err
 		}
-		exceptStatus.AlreadyReplicas += *tmp.Spec.Replicas
-		exceptStatus.AlreadyDeployment++
+		expectStatus.AlreadyReplicas += *tmp.Spec.Replicas
+		expectStatus.AlreadyDeployment++
 	}
 
-	if !reflect.DeepEqual(old.Status, exceptStatus) {
-		old.Status = exceptStatus
+	if !reflect.DeepEqual(old.Status, expectStatus) {
+		old.Status = expectStatus
 		if err := r.Client.Status().Update(ctx, old); err != nil {
 			return err
 		}
