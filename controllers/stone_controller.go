@@ -18,8 +18,9 @@ package controllers
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,20 +35,47 @@ type StoneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=stones,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=stones/status,verbs=get;update;patch
 
 func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("stone", req.NamespacedName)
+	ctx := context.Background()
+	logf := r.Log.WithValues("stone", req.NamespacedName)
 
-	// your logic here
+	instance := &nuwav1.Stone{}
+	if err := r.Client.Get(ctx, req.NamespacedName, instance); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	logf.Info("Update statefulset")
+	if err := r.updateStatefulSet(ctx, req, instance); err != nil {
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *StoneReconciler) updateStatefulSet(ctx context.Context, req ctrl.Request, instance *nuwav1.Stone) error {
+	sts := &appsv1.StatefulSet{}
+	if err := r.Client.Get(ctx, req.NamespacedName, sts); err != nil {
+		if errors.IsNotFound(err) {
+			// create it
+
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.Stone{}).
+		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
 }

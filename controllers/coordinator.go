@@ -51,6 +51,33 @@ func newLocalCoordinate(index int, client client.Client, coordinate nuwav1.Coord
 }
 
 func (l *coordinator) generateAffinity() {
+	nodeSelectorRequirements := make([]corev1.NodeSelectorRequirement, 0)
+	nodeSelectorRequirements = append(nodeSelectorRequirements,
+		corev1.NodeSelectorRequirement{
+			Key:      nuwaRoomFlag,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   []string{l.Coordinate.Room},
+		},
+	)
+	if l.Coordinate.Cabinet != "" {
+		nodeSelectorRequirements = append(nodeSelectorRequirements,
+			corev1.NodeSelectorRequirement{
+				Key:      nuwaCabinetFlag,
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   []string{l.Coordinate.Cabinet},
+			},
+		)
+	}
+	if l.Coordinate.Host != "" {
+		nodeSelectorRequirements = append(nodeSelectorRequirements,
+			corev1.NodeSelectorRequirement{
+				Key:      nuwaHostFlag,
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   l.NodeNameList,
+			},
+		)
+	}
+
 	l.NodeAffinity = &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -66,30 +93,12 @@ func (l *coordinator) generateAffinity() {
 			},
 		},
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-			corev1.PreferredSchedulingTerm{
-				Weight: 100,
-				Preference: corev1.NodeSelectorTerm{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						corev1.NodeSelectorRequirement{
-							Key:      nuwaRoomFlag,
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{l.Coordinate.Room},
-						},
-						corev1.NodeSelectorRequirement{
-							Key:      nuwaCabinetFlag,
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{l.Coordinate.Cabinet},
-						},
-						corev1.NodeSelectorRequirement{
-							Key:      nuwaHostFlag,
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   l.NodeNameList,
-						},
-					},
-				},
+			corev1.PreferredSchedulingTerm{Weight: 100,
+				Preference: corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements},
 			},
 		},
 	}
+
 }
 
 func (l *coordinator) findMatchNode() (err error) {
@@ -132,18 +141,10 @@ func (l *coordinator) generateHostMatchLabels() (clientMatchLabs client.Matching
 }
 
 func (l *coordinator) setCoordinateName() error {
-	res := ""
-	if l.Coordinate.Room == "" {
-		return ErrNeedAtLeastRoom
+	res, err := coordinateName(l.Coordinate)
+	if err != nil {
+		return err
 	}
-	res += l.Coordinate.Room
-	res += "-"
-	if l.Coordinate.Cabinet != "" {
-		res += l.Coordinate.Cabinet
-	} else {
-		res += "Non"
-	}
-
 	l.Name = res
 
 	return nil

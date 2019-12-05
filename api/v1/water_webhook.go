@@ -94,5 +94,6 @@ func (r *Water) ValidateDelete() error {
 	waterlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
+	// TODO(service): 当删除water的时候,需要将service保留下来,确定删除,预防service端口被重用
 	return nil
 }

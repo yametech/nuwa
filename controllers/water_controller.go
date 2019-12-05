@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,13 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 // WaterReconciler reconciles a Water object
@@ -41,10 +38,6 @@ type WaterReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-}
-
-func deploymentName(coordinateName string, instance *nuwav1.Water) string {
-	return fmt.Sprintf("%s-%s", instance.Name, strings.ToLower(coordinateName))
 }
 
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -59,28 +52,25 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	instance := &nuwav1.Water{}
 	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
 		if errors.IsNotFound(err) {
-			// ignore not found error
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
-
 	//  TODO fill logic
+
+	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	instance.Status.DesiredDeployments = int32(len(coordinators))
-	instance.Status.DesiredReplicas = 0
-
 	for i := range coordinators {
 		local := coordinators[i]
 		logf.Info("Reconcile coordinate", "coordinate", local.Name)
-
-		instance.Status.DesiredReplicas += local.Coordinate.Replicas
 		size := int32(1)
-
 		switch instance.Spec.Strategy {
 		case nuwav1.Alpha:
 			if local.Index > 0 {
@@ -93,25 +83,26 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			size = local.Coordinate.Replicas
 			logf.Info("Water deploy strategy is Release")
 		}
-
-		if err := r.updateDeployment(ctx, types.NamespacedName{Namespace: req.Namespace, Name: deploymentName(local.Name, instance)},
-			instance, &size, local.NodeAffinity); err != nil {
-			return ctrl.Result{}, err
+		objKey := types.NamespacedName{
+			Namespace: req.Namespace,
+			Name:      deploymentName(local.Name, instance),
 		}
-		if err := r.createService(ctx, instance); err != nil {
+		if err := r.updateDeployment(ctx, objKey, instance, &size, local.NodeAffinity); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
-	logf.Info("annotation water")
+
+	if err := r.createService(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
 	if err := r.annotationWater(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
-	logf.Info("update water")
 	if err := r.updateWater(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, r.Status().Update(ctx, instance)
+	return ctrl.Result{}, nil
 }
 
 func (r *WaterReconciler) annotationWater(ctx context.Context, instance *nuwav1.Water) error {
@@ -149,8 +140,7 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 	}
 
 	logf.Info("Create service", "service", instance.Name)
-	err := r.Client.Get(ctx, objectKey, service)
-	if err != nil {
+	if err := r.Client.Get(ctx, objectKey, service); err != nil {
 		if errors.IsNotFound(err) {
 			if err = r.Client.Create(ctx, service); err != nil {
 				return err
@@ -164,9 +154,7 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 }
 
 func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types.NamespacedName, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
-	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
-	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
-	logf := r.Log.WithValues("water create deployment", objectKey, "namespace", nameSpace)
+	logf := r.Log.WithValues("water create deployment", deployName.Name, "namespace", deployName.Namespace)
 
 	labels := map[string]string{"app": instance.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
@@ -205,21 +193,18 @@ func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types
 			if err := controllerutil.SetControllerReference(instance, newDeployment, r.Scheme); err != nil {
 				return err
 			}
-			instance.Status.AlreadyDeployment++
-			instance.Status.AlreadyReplicas += *size
 			return nil
 		}
 		return err
 	}
 
 	if *oldDeployment.Spec.Replicas != *size {
-		instance.Status.AlreadyReplicas = instance.Status.AlreadyReplicas - *oldDeployment.Spec.Replicas
-		oldDeployment.Spec.Replicas = size
+		*oldDeployment.Spec.Replicas = *size
 		if err := r.Client.Update(ctx, oldDeployment); err != nil {
 			return err
 		}
-		instance.Status.AlreadyReplicas += *size
 	}
+
 	logf.Info("Create deployment done")
 
 	return nil
@@ -227,7 +212,8 @@ func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types
 
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
 	old := &nuwav1.Water{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: instance.Namespace, Name: instance.Name}, old); err != nil {
+	objKey := types.NamespacedName{Namespace: instance.Namespace, Name: instance.Name}
+	if err := r.Client.Get(ctx, objKey, old); err != nil {
 		return err
 	}
 	if !reflect.DeepEqual(old.Spec, instance.Spec) {
@@ -235,6 +221,79 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 		old.Annotations = instance.Annotations
 		if err := r.Client.Update(ctx, old); err != nil {
 			return err
+		}
+	}
+
+	exceptStatus := nuwav1.WaterStatus{}
+	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
+	if err != nil {
+		return err
+	}
+	exceptStatus.DesiredDeployments = int32(len(coordinators))
+	for i := range coordinators {
+		local := coordinators[i]
+		exceptStatus.DesiredReplicas += local.Coordinate.Replicas
+		objKey := types.NamespacedName{Namespace: instance.Namespace, Name: deploymentName(local.Name, instance)}
+		tmp := &appsv1.Deployment{}
+		if err := r.Client.Get(ctx, objKey, tmp); err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		exceptStatus.AlreadyReplicas += *tmp.Spec.Replicas
+		exceptStatus.AlreadyDeployment++
+	}
+
+	if !reflect.DeepEqual(old.Status, exceptStatus) {
+		old.Status = exceptStatus
+		if err := r.Client.Status().Update(ctx, old); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance *nuwav1.Water) error {
+	if instance.Annotations == nil {
+		return nil
+	}
+	var tmpWaterSpec nuwav1.WaterSpec
+	bs, ok := instance.Annotations["spec"]
+	if !ok {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(bs), &tmpWaterSpec); err != nil {
+		return err
+	}
+
+	tmp1 := tmpWaterSpec.Coordinates.DeepCopy()
+	tmp2 := instance.Spec.Coordinates.DeepCopy()
+	diffSlice := nuwav1.Difference(tmp1, tmp2)
+	if len(diffSlice) > 0 {
+		for _, c := range tmp1 {
+			if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
+				r.Log.Info("Delete", "room", c.Room, "cabinet", c.Cabinet, "host", c.Host)
+				coorName, err := coordinateName(&c)
+				if err != nil {
+					return err
+				}
+				objKey := types.NamespacedName{
+					Namespace: instance.Namespace,
+					Name:      deploymentName(coorName, instance),
+				}
+				deployment := &appsv1.Deployment{}
+				if err := r.Client.Get(ctx, objKey, deployment); err != nil {
+					if errors.IsNotFound(err) {
+						continue
+					}
+					return err
+				}
+				if err := r.Client.Delete(ctx, deployment); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -246,15 +305,4 @@ func (r *WaterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&nuwav1.Water{}).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
-}
-
-func ownerReference(obj metav1.Object, kindName string) []metav1.OwnerReference {
-	return []metav1.OwnerReference{
-		*metav1.NewControllerRef(obj,
-			schema.GroupVersionKind{
-				Group:   nuwav1.GroupVersion.Group,
-				Version: nuwav1.GroupVersion.Version,
-				Kind:    kindName,
-			}),
-	}
 }

@@ -38,6 +38,17 @@ type Coordinate struct {
 	Replicas int32 `json:"replicas,omitempty"`
 }
 
+func (c Coordinate) Equal(c1 Coordinate) bool {
+	if c.Room != c1.Room {
+		return false
+	} else if c.Cabinet != c1.Cabinet {
+		return false
+	} else if c.Host != c1.Host {
+		return false
+	}
+	return true
+}
+
 // Coordinates defines the desired identity pod of nodes
 type Coordinates []Coordinate
 
@@ -56,4 +67,38 @@ func (c *Coordinates) Less(i, j int) bool {
 
 func (c *Coordinates) Swap(i, j int) {
 	(*c)[i], (*c)[j] = (*c)[j], (*c)[i]
+}
+
+func Difference(slice1 Coordinates, slice2 Coordinates) Coordinates {
+	var diff Coordinates
+	for i := 0; i < 2; i++ {
+		for _, s1 := range slice1 {
+			found := false
+			for _, s2 := range slice2 {
+				if s1.Equal(s2) {
+					found = true
+					break
+				}
+			}
+			// Coordinate not found. We add it to return slice
+			if !found {
+				diff = append(diff, s1)
+			}
+		}
+		// Swap the slices, only if it was the first loop
+		if i == 0 {
+			slice1, slice2 = slice2, slice1
+		}
+	}
+
+	return diff
+}
+
+func In(slice Coordinates, c Coordinate) bool {
+	for _, s := range slice {
+		if s.Equal(c) {
+			return true
+		}
+	}
+	return false
 }

@@ -49,7 +49,7 @@ type WaterSpec struct {
 	// Identify the deployment status expected by the current resource
 	// Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
 	// +optional
-	Coordinates []Coordinate `json:"coordinates,omitempty"`
+	Coordinates Coordinates `json:"coordinates,omitempty"`
 	// Identify the deployment service expected by the current resource
 	// +optional
 	Service corev1.ServiceSpec `json:"service,omitempty"`
@@ -73,7 +73,7 @@ type WaterStatus struct {
 // +k8s:openapi-gen=true
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=wts
+// +kubebuilder:resource:shortName=wt
 // +kubebuilder:printcolumn:name="DESIRED-REPLICAS",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
 // +kubebuilder:printcolumn:name="ALREADY-REPLICAS",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
 // +kubebuilder:printcolumn:name="DESIRED-DEPLOYMENTS",type="integer",JSONPath=".status.desired_deployments",description="The desired number of deployments."
