@@ -37,9 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	annotationPrefix = "sidecar.admission.nuwav1.io"
-)
+//const (
+//	annotationPrefix = "sidecar.admission.nuwav1.io"
+//)
 
 var (
 	schemePod = runtime.NewScheme()
