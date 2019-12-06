@@ -19,12 +19,13 @@ package v1
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	//logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // log is for logging in this package.
-var stonelog = logf.Log.WithName("stone-resource")
+//var stonelog = logf.Log.WithName("stone-resource")
 
 func (r *Stone) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -40,7 +41,7 @@ var _ webhook.Defaulter = &Stone{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Stone) Default() {
-	stonelog.Info("default", "name", r.Name)
+	//stonelog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your defaulting logic.
 }
@@ -52,7 +53,7 @@ var _ webhook.Validator = &Stone{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Stone) ValidateCreate() error {
-	stonelog.Info("validate create", "name", r.Name)
+	//stonelog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
@@ -60,7 +61,7 @@ func (r *Stone) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Stone) ValidateUpdate(old runtime.Object) error {
-	stonelog.Info("validate update", "name", r.Name)
+	//stonelog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
@@ -68,7 +69,7 @@ func (r *Stone) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *Stone) ValidateDelete() error {
-	stonelog.Info("validate delete", "name", r.Name)
+	//stonelog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil

@@ -17,17 +17,17 @@ limitations under the License.
 package v1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	//logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-var incr int64
+//var incr int64
 
 // log is for logging in this package.
-var waterlog = logf.Log.WithName("water-resource")
+//var waterlog = logf.Log.WithName("water-resource")
 
 func (r *Water) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -40,13 +40,13 @@ func (r *Water) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:webhook:path=/mutate-nuwa-nip-io-v1-water,mutating=true,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,verbs=create;update,versions=v1,name=mwater.kb.io
 var _ webhook.Defaulter = &Water{}
 
-func iter(i int) []corev1.Container {
-	return make([]corev1.Container, i)
-}
+//func iter(i int) []corev1.Container {
+//	return make([]corev1.Container, i)
+//}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Water) Default() {
-	waterlog.Info("default", "name", r.Name)
+	//waterlog.Info("default", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	//labels := map[string]string{"app": r.Name}
@@ -65,7 +65,7 @@ func (r *Water) Default() {
 	//
 	//r.Spec.Deploy.Template.Spec.Containers = cns
 
-	waterlog.Info("water webhook default", "name", r.Name)
+	//waterlog.Info("water webhook default", "name", r.Name)
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -75,7 +75,7 @@ var _ webhook.Validator = &Water{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Water) ValidateCreate() error {
-	waterlog.Info("validate create", "name", r.Name)
+	//waterlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	return nil
@@ -83,7 +83,7 @@ func (r *Water) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Water) ValidateUpdate(old runtime.Object) error {
-	waterlog.Info("validate update", "name", r.Name)
+	//waterlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
 	return nil
@@ -91,7 +91,7 @@ func (r *Water) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *Water) ValidateDelete() error {
-	waterlog.Info("validate delete", "name", r.Name)
+	//waterlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	// TODO(service): 当删除water的时候,需要将service保留下来,确定删除,预防service端口被重用
