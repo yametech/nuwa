@@ -311,7 +311,7 @@ func (in *WaterSpec) DeepCopyInto(out *WaterSpec) {
 	in.Template.DeepCopyInto(&out.Template)
 	if in.Coordinates != nil {
 		in, out := &in.Coordinates, &out.Coordinates
-		*out = make([]Coordinate, len(*in))
+		*out = make(Coordinates, len(*in))
 		copy(*out, *in)
 	}
 	in.Service.DeepCopyInto(&out.Service)
