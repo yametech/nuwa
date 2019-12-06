@@ -4,7 +4,7 @@ metadata:
   metadata:
   labels:
     control-plane: controller-manager
-  name: sidecar-injector
+  name: nuwa-sidecar-injector
   namespace: system
 spec:
   type: ClusterIP

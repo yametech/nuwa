@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,20 +28,21 @@ import (
 type StoneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Stone. Edit Stone_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	StatefulSetSpec appsv1.StatefulSetSpec `json:"stateful_set_spec"`
 }
 
 // StoneStatus defines the observed state of Stone
 type StoneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	StatefulSetStatus appsv1.StatefulSetStatus `json:"stateful_set_status"`
 }
 
 // +kubebuilder:object:root=true
-
 // Stone is the Schema for the stones API
+// +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=st
 type Stone struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
