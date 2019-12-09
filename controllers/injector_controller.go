@@ -29,7 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 const annotationPrefix = "injector.admission.nuwav1.io"
@@ -63,7 +65,7 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// TODO
 	// webhook 中可能存在的问题,容器名冲突
 	// 镜像拉取策略
-	// water or stone 创建时未触发reconcile
+	// water or stone 创建时未触发reconcile --- 20191206194700 已解决
 
 	if instance.Spec.Name == "" {
 		return reconcile.Result{}, fmt.Errorf("%s", "required name is not defined")
@@ -77,22 +79,28 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		water := &nuwav1.Water{}
 		if err := r.Client.Get(ctx, objKey, water); err != nil {
 			if errors.IsNotFound(err) {
-				return ctrl.Result{}, nil
+				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 			}
 		}
 		if instance.ObjectMeta.OwnerReferences == nil || len(instance.ObjectMeta.OwnerReferences) == 0 {
 			instance.ObjectMeta.OwnerReferences = append(instance.ObjectMeta.OwnerReferences, ownerReference(water, "Water")...)
+			if err := controllerutil.SetControllerReference(instance, water, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 
 	case "Stone":
 		stone := &nuwav1.Stone{}
 		if err := r.Client.Get(ctx, objKey, stone); err != nil {
 			if errors.IsNotFound(err) {
-				return ctrl.Result{}, nil
+				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 			}
 		}
 		if instance.ObjectMeta.OwnerReferences == nil || len(instance.ObjectMeta.OwnerReferences) == 0 {
 			instance.ObjectMeta.OwnerReferences = append(instance.ObjectMeta.OwnerReferences, ownerReference(stone, "Stone")...)
+			if err := controllerutil.SetControllerReference(instance, stone, r.Scheme); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 
 	default:
