@@ -150,15 +150,58 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 
 	glog.V(5).Infof("Matching Injector Pod detected of count %v, patching spec", len(matchingIPods))
 	if matchingIPods[0].Spec.PreContainers != nil && matchingIPods[0].Spec.AfterContainers == nil {
-		podCopy.Spec.Containers = append(matchingIPods[0].Spec.PreContainers, podCopy.Spec.Containers...)
+		var pods []corev1.Container
+		for _, podCopyContainer := range podCopy.Spec.Containers {
+			for _, matchingContainer := range matchingIPods[0].Spec.PreContainers {
+				//if the pod name same, not update it.
+				if podCopyContainer.Name == matchingContainer.Name {
+					continue
+				}
+				pods = append(pods, matchingContainer)
+			}
+		}
+		podCopy.Spec.Containers = make([]corev1.Container, len(pods))
+		podCopy.Spec.Containers = append(pods, podCopy.Spec.Containers...)
 	}
 	if matchingIPods[0].Spec.AfterContainers != nil && matchingIPods[0].Spec.PreContainers == nil {
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPods[0].Spec.AfterContainers...)
+		var pods []corev1.Container
+		for _, podCopyContainer := range podCopy.Spec.Containers {
+			for _, matchingContainer := range matchingIPods[0].Spec.AfterContainers {
+				//if the pod name same, not update it.
+				if podCopyContainer.Name == matchingContainer.Name {
+					continue
+				}
+				pods = append(pods, matchingContainer)
+			}
+		}
+		podCopy.Spec.Containers = make([]corev1.Container, len(pods))
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, pods...)
 	}
 
 	if matchingIPods[0].Spec.AfterContainers != nil && matchingIPods[0].Spec.PreContainers != nil {
-		podCopy.Spec.Containers = append(matchingIPods[0].Spec.PreContainers, podCopy.Spec.Containers...)
-		podCopy.Spec.Containers = append(podCopy.Spec.Containers, matchingIPods[0].Spec.AfterContainers...)
+		var podPres []corev1.Container
+		for _, podCopyContainer := range podCopy.Spec.Containers {
+			for _, matchingContainer := range matchingIPods[0].Spec.PreContainers {
+				//if the pod name same, not update it.
+				if podCopyContainer.Name == matchingContainer.Name {
+					continue
+				}
+				podPres = append(podPres, matchingContainer)
+			}
+		}
+		podCopy.Spec.Containers = make([]corev1.Container, len(podPres))
+		podCopy.Spec.Containers = append(podPres, podCopy.Spec.Containers...)
+		var podAfters []corev1.Container
+		for _, podCopyContainer := range podCopy.Spec.Containers {
+			for _, matchingContainer := range matchingIPods[0].Spec.AfterContainers {
+				//if the pod name same, not update it.
+				if podCopyContainer.Name == matchingContainer.Name {
+					continue
+				}
+				podAfters = append(podAfters, matchingContainer)
+			}
+		}
+		podCopy.Spec.Containers = append(podCopy.Spec.Containers, podAfters...)
 	}
 	var volumes []corev1.Volume
 	if matchingIPods[0].Spec.Volumes != nil {
