@@ -13,6 +13,7 @@ spec:
       containers:
         - name: cn-0
           image: nginx:latest
+          imagePullPolicy: IfNotPresent
   service:
     ports:
       - name: default-web-port
@@ -24,12 +25,16 @@ spec:
     - room: A
       cabinet: W-01
       host: node2
-      replicas: 1
+      replicas: 2
     - room: A
       cabinet: S-02
       host: node3
-      replicas: 1
+      replicas: 5
     - room: B
       cabinet: W-01
       host: node4
-      replicas: 1 
+      replicas: 2
+    - room: B
+      cabinet: S-02
+      host: node5
+      replicas: 2
