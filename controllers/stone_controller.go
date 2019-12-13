@@ -19,13 +19,11 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	nuwav1 "github.com/yametech/nuwa/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	nuwav1 "github.com/yametech/nuwa/api/v1"
 )
 
 // StoneReconciler reconciles a Stone object
@@ -43,34 +41,8 @@ type StoneReconciler struct {
 func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logf := r.Log.WithValues("stone", req.NamespacedName)
-
-	instance := &nuwav1.Stone{}
-	if err := r.Client.Get(ctx, req.NamespacedName, instance); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
-	logf.Info("Update statefulset")
-	if err := r.updateStatefulSet(ctx, req, instance); err != nil {
-		return ctrl.Result{}, nil
-	}
-
+	_, _ = ctx, logf
 	return ctrl.Result{}, nil
-}
-
-func (r *StoneReconciler) updateStatefulSet(ctx context.Context, req ctrl.Request, instance *nuwav1.Stone) error {
-	sts := &appsv1.StatefulSet{}
-	if err := r.Client.Get(ctx, req.NamespacedName, sts); err != nil {
-		if errors.IsNotFound(err) {
-			// create it
-
-		} else {
-			return err
-		}
-	}
-	return nil
 }
 
 func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {

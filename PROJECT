@@ -8,12 +8,9 @@ resources:
   kind: Stone
   version: v1
 - group: nuwa
-  kind: Sidecar
-  version: v1
-- group: nuwa
-  kind: Job
-  version: v1
-- group: nuwa
   kind: Injector
+  version: v1
+- group: nuwa
+  kind: StatefulSet
   version: v1
 version: "2"

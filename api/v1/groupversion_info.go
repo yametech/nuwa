@@ -51,3 +51,8 @@ func Kind(kind string) schema.GroupKind {
 func Resource(resource string) schema.GroupResource {
 	return GroupVersion.WithResource(resource).GroupResource()
 }
+
+// GVK
+func GVK(kind string) schema.GroupVersionKind {
+	return GroupVersion.WithKind(kind)
+}
