@@ -22,13 +22,14 @@ import (
 	"encoding/json"
 	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
-	apps "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/scheme"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
+	"k8s.io/kubernetes/pkg/apis/apps"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
 	"regexp"
@@ -108,7 +109,7 @@ func identityMatches(set *nuwav1.StatefulSet, pod *corev1.Pod) bool {
 		set.Name == parent &&
 		pod.Name == getPodName(set, ordinal) &&
 		pod.Namespace == set.Namespace &&
-		pod.Labels[apps.StatefulSetPodNameLabel] == pod.Name
+		pod.Labels[nuwav1.StatefulSetPodNameLabel] == pod.Name
 }
 
 // storageMatches returns true if pod's Volumes cover the set of PersistentVolumeClaims
@@ -197,7 +198,7 @@ func updateIdentity(set *nuwav1.StatefulSet, pod *corev1.Pod) {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	pod.Labels[apps.StatefulSetPodNameLabel] = pod.Name
+	pod.Labels[nuwav1.StatefulSetPodNameLabel] = pod.Name
 }
 
 // isRunningAndReady returns true if pod is in the PodRunning Phase, if it has a condition of PodReady.
@@ -226,8 +227,8 @@ func isHealthy(pod *corev1.Pod) bool {
 }
 
 // allowsBurst is true if the alpha burst annotation is set.
-func allowsBurst(set *apps.StatefulSet) bool {
-	return set.Spec.PodManagementPolicy == apps.ParallelPodManagement
+func allowsBurst(set *nuwav1.StatefulSet) bool {
+	return set.Spec.PodManagementPolicy == nuwav1.ParallelPodManagement
 }
 
 // setPodRevision sets the revision of Pod to revision by adding the StatefulSetRevisionLabel
@@ -235,7 +236,7 @@ func setPodRevision(pod *corev1.Pod, revision string) {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	pod.Labels[apps.StatefulSetRevisionLabel] = revision
+	pod.Labels[nuwav1.StatefulSetRevisionLabel] = revision
 }
 
 // getPodRevision gets the revision of Pod by inspecting the StatefulSetRevisionLabel. If pod has no revision the empty
@@ -244,7 +245,7 @@ func getPodRevision(pod *corev1.Pod) string {
 	if pod.Labels == nil {
 		return ""
 	}
-	return pod.Labels[apps.StatefulSetRevisionLabel]
+	return pod.Labels[nuwav1.StatefulSetRevisionLabel]
 }
 
 // newStatefulSetPod returns a new Pod conforming to the set's Spec with an identity generated from ordinal.
@@ -274,7 +275,7 @@ func newVersionedStatefulSetPod(currentSet, updateSet *nuwav1.StatefulSet, curre
 }
 
 // Match check if the given StatefulSet's template matches the template stored in the given history.
-func Match(ss *nuwav1.StatefulSet, history *apps.ControllerRevision) (bool, error) {
+func Match(ss *nuwav1.StatefulSet, history *appsv1.ControllerRevision) (bool, error) {
 	patch, err := getPatch(ss)
 	if err != nil {
 		return false, err
@@ -308,7 +309,7 @@ func getPatch(set *nuwav1.StatefulSet) ([]byte, error) {
 // The Revision of the returned ControllerRevision is set to revision. If the returned error is nil, the returned
 // ControllerRevision is valid. StatefulSet revisions are stored as patches that re-apply the current state of set
 // to a new StatefulSet using a strategic merge patch to replace the saved state of the new StatefulSet.
-func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32) (*apps.ControllerRevision, error) {
+func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32) (*appsv1.ControllerRevision, error) {
 	patch, err := getPatch(set)
 	if err != nil {
 		return nil, err
@@ -333,13 +334,13 @@ func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32)
 
 // ApplyRevision returns a new StatefulSet constructed by restoring the state in revision to set. If the returned error
 // is nil, the returned StatefulSet is valid.
-func ApplyRevision(set *apps.StatefulSet, revision *apps.ControllerRevision) (*apps.StatefulSet, error) {
+func ApplyRevision(set *nuwav1.StatefulSet, revision *appsv1.ControllerRevision) (*nuwav1.StatefulSet, error) {
 	clone := set.DeepCopy()
 	patched, err := strategicpatch.StrategicMergePatch([]byte(runtime.EncodeOrDie(patchCodec, clone)), revision.Data.Raw, clone)
 	if err != nil {
 		return nil, err
 	}
-	restoredSet := &apps.StatefulSet{}
+	restoredSet := &nuwav1.StatefulSet{}
 	err = json.Unmarshal(patched, restoredSet)
 	if err != nil {
 		return nil, err
@@ -350,7 +351,7 @@ func ApplyRevision(set *apps.StatefulSet, revision *apps.ControllerRevision) (*a
 // nextRevision finds the next valid revision number based on revisions. If the length of revisions
 // is 0 this is 1. Otherwise, it is 1 greater than the largest revision's Revision. This method
 // assumes that revisions has been sorted by Revision.
-func nextRevision(revisions []*apps.ControllerRevision) int64 {
+func nextRevision(revisions []*appsv1.ControllerRevision) int64 {
 	count := len(revisions)
 	if count <= 0 {
 		return 1
@@ -360,7 +361,7 @@ func nextRevision(revisions []*apps.ControllerRevision) int64 {
 
 // inconsistentStatus returns true if the ObservedGeneration of status is greater than set's
 // Generation or if any of the status's fields do not match those of set's status.
-func inconsistentStatus(set *apps.StatefulSet, status *apps.StatefulSetStatus) bool {
+func inconsistentStatus(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetStatus) bool {
 	return status.ObservedGeneration > set.Status.ObservedGeneration ||
 		status.Replicas != set.Status.Replicas ||
 		status.CurrentReplicas != set.Status.CurrentReplicas ||
@@ -374,8 +375,8 @@ func inconsistentStatus(set *apps.StatefulSet, status *apps.StatefulSetStatus) b
 // to the updateRevision. status's currentRevision is set to updateRevision and its' updateRevision
 // is set to the empty string. status's currentReplicas is set to updateReplicas and its updateReplicas
 // are set to 0.
-func completeRollingUpdate(set *apps.StatefulSet, status *apps.StatefulSetStatus) {
-	if set.Spec.UpdateStrategy.Type == apps.RollingUpdateStatefulSetStrategyType &&
+func completeRollingUpdate(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetStatus) {
+	if set.Spec.UpdateStrategy.Type == nuwav1.RollingUpdateStatefulSetStrategyType &&
 		status.UpdatedReplicas == status.Replicas &&
 		status.ReadyReplicas == status.Replicas {
 		status.CurrentReplicas = status.UpdatedReplicas

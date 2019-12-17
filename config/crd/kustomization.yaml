@@ -5,7 +5,7 @@ resources:
   - bases/nuwa.nip.io_waters.yaml
   - bases/nuwa.nip.io_stones.yaml
   - bases/nuwa.nip.io_injectors.yaml
-- bases/nuwa.nip.io_statefulsets.yaml
+  - bases/nuwa.nip.io_statefulsets.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

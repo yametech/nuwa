@@ -1,0 +1,23 @@
+apiVersion: nuwa.nip.io/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app: web
+  serviceName: "web"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: nginx
+          image: k8s.gcr.io/nginx-slim:0.8
+          ports:
+            - containerPort: 80
+              name: web
+  revisionHistoryLimit: 10

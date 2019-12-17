@@ -20,7 +20,6 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,11 +32,10 @@ type StoneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=nuwa.nip.io,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=nuwa.nip.io,resources=statefulsets/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=stones,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=stones/status,verbs=get;update;patch
-
 func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logf := r.Log.WithValues("stone", req.NamespacedName)
@@ -48,6 +46,6 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.Stone{}).
-		Owns(&appsv1.StatefulSet{}).
+		Owns(&nuwav1.StatefulSet{}).
 		Complete(r)
 }

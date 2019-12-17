@@ -159,16 +159,21 @@ type StatefulSetCondition struct {
 	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
+/*
+//+genclient
+//+genclient:method=GetScale,verb=get,subresource=scale,result=k8s.io/api/autoscaling/v1.Scale
+//+genclient:method=UpdateScale,verb=update,subresource=scale,input=k8s.io/api/autoscaling/v1.Scale,result=k8s.io/api/autoscaling/v1.Scale
+//StatefulSet represents a set of pods with consistent identities.
+//Identities are defined as:
+// - Network: A single stable DNS and hostname.
+// - Storage: As many VolumeClaims as requested.
+//The StatefulSet guarantees that a given network identity will always
+//map to the same storage identity.
+*/
+
+
 // +kubebuilder:object:root=true
-// +genclient
-// +genclient:method=GetScale,verb=get,subresource=scale,result=k8s.io/api/autoscaling/v1.Scale
-// +genclient:method=UpdateScale,verb=update,subresource=scale,input=k8s.io/api/autoscaling/v1.Scale,result=k8s.io/api/autoscaling/v1.Scale
-// StatefulSet represents a set of pods with consistent identities.
-// Identities are defined as:
-//  - Network: A single stable DNS and hostname.
-//  - Storage: As many VolumeClaims as requested.
-// The StatefulSet guarantees that a given network identity will always
-// map to the same storage identity.
+// +kubebuilder:resource:shortName=st
 type StatefulSet struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
