@@ -14,7 +14,7 @@ spec:
     listKind: InjectorList
     plural: injectors
     shortNames:
-    - ij
+    - nuwainj
     singular: injector
   scope: Namespaced
   validation:

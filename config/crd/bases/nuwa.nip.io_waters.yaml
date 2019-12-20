@@ -38,7 +38,7 @@ spec:
     listKind: WaterList
     plural: waters
     shortNames:
-    - wt
+    - nuwawts
     singular: water
   scope: Namespaced
   subresources:

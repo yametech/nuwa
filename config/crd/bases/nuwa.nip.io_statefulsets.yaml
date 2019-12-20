@@ -8,21 +8,30 @@ metadata:
   creationTimestamp: null
   name: statefulsets.nuwa.nip.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.replicas
+    description: The number of jobs launched by the statefulset
+    name: Replicas
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: nuwa.nip.io
   names:
     kind: StatefulSet
     listKind: StatefulSetList
     plural: statefulsets
     shortNames:
-    - st
+    - nuwasts
     singular: statefulset
   scope: Namespaced
+  subresources:
+    scale:
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
+    status: {}
   validation:
     openAPIV3Schema:
-      description: 'StatefulSet represents a set of pods with consistent identities.
-        Identities are defined as:  - Network: A single stable DNS and hostname.  -
-        Storage: As many VolumeClaims as requested. The StatefulSet guarantees that
-        a given network identity will always map to the same storage identity.'
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation

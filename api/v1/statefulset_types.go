@@ -1,5 +1,6 @@
 /*
 Copyright 2019 yametech.
+Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -172,7 +173,11 @@ type StatefulSetCondition struct {
 */
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=st
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=nuwasts
+// +kubebuilder:subresource:scale:specpath=".spec.replicas",statuspath=".status.replicas"
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".spec.replicas",description="The number of jobs launched by the statefulset"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type StatefulSet struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

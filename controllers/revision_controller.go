@@ -1,3 +1,20 @@
+/*
+Copyright 2019 yametech.
+Copyright 2016 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controllers
 
 import (
@@ -42,10 +59,7 @@ func (rh *realHistory) CreateControllerRevision(parent metav1.Object, revision *
 	if collisionCount == nil {
 		return nil, fmt.Errorf("collisionCount should not be nil")
 	}
-
-	// Clone the input
 	clone := revision.DeepCopy()
-
 	// Continue to attempt to create the revision updating the name with a new hash on each iteration
 	for {
 		hash := history.HashControllerRevision(revision, collisionCount)
@@ -54,10 +68,8 @@ func (rh *realHistory) CreateControllerRevision(parent metav1.Object, revision *
 		ns := parent.GetNamespace()
 		clone.Namespace = ns
 		ctx := context.TODO()
-		//created, err := rh.client.AppsV1().ControllerRevisions(ns).Create(clone)
 		err := rh.Client.Create(ctx, clone)
 		if errors.IsAlreadyExists(err) {
-			//exists, err := rh.client.AppsV1().ControllerRevisions(ns).Get(clone.Name, metav1.GetOptions{})
 			exists := &apps.ControllerRevision{}
 			err := rh.Client.Get(ctx, types.NamespacedName{Namespace: ns, Name: clone.Name}, exists)
 			if err != nil {
@@ -80,7 +92,6 @@ func (rh *realHistory) UpdateControllerRevision(revision *apps.ControllerRevisio
 			return nil
 		}
 		clone.Revision = newRevision
-		//updated, updateErr := rh.client.AppsV1().ControllerRevisions(clone.Namespace).Update(clone)
 		ctx := context.Background()
 		updateErr := rh.Client.Update(ctx, clone)
 		if updateErr == nil {

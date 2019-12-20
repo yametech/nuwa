@@ -54,7 +54,7 @@ type InjectorStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:shortName=ij
+// +kubebuilder:resource:shortName=nuwainj
 // Injector is the Schema for the injectors API
 type Injector struct {
 	metav1.TypeMeta   `json:",inline"`
