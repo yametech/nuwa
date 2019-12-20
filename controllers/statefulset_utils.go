@@ -27,20 +27,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/client-go/kubernetes/scheme"
+	//"k8s.io/client-go/kubernetes/scheme"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
-	"k8s.io/kubernetes/pkg/apis/apps"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
 	"regexp"
 	"strconv"
 )
 
-var patchCodec = scheme.Codecs.LegacyCodec(apps.SchemeGroupVersion)
+//var patchCodec = scheme.Codecs.LegacyCodec(nuwav1.GroupVersion)
 
 // overlappingStatefulSets sorts a list of StatefulSets by creation timestamp, using their names as a tie breaker.
 // Generally used to tie break between StatefulSets that have overlapping selectors.
-type overlappingStatefulSets []*apps.StatefulSet
+type overlappingStatefulSets []*nuwav1.StatefulSet
 
 func (o overlappingStatefulSets) Len() int { return len(o) }
 
@@ -382,6 +381,14 @@ func completeRollingUpdate(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetSt
 		status.CurrentReplicas = status.UpdatedReplicas
 		status.CurrentRevision = status.UpdateRevision
 	}
+}
+
+func equalToExpectations(old *nuwav1.StatefulSet, new *nuwav1.StatefulSet) bool {
+	if old.Status.CurrentReplicas == new.Status.CurrentReplicas &&
+		old.Status.CurrentRevision == new.Status.CurrentRevision {
+		return true
+	}
+	return false
 }
 
 // ascendingOrdinal is a sort.Interface that Sorts a list of Pods based on the ordinals extracted

@@ -171,7 +171,6 @@ type StatefulSetCondition struct {
 //map to the same storage identity.
 */
 
-
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=st
 type StatefulSet struct {

@@ -20,7 +20,6 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
@@ -35,11 +34,11 @@ var (
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 
-	podScheme = runtime.NewScheme()
+	// podScheme = runtime.NewScheme()
 )
 
 func init() {
-	_ = AddToScheme(podScheme)
+	// _ = AddToScheme(podScheme)
 }
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind

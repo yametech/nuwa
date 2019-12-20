@@ -28,15 +28,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/informers"
-	clientgo "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
@@ -44,48 +41,14 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sort"
-	"strings"
 	"time"
 )
 
 var controllerKind = nuwav1.GroupVersion.WithKind("StatefulSet")
-//var _ StatefulPodControlInterface = &StatefulSetReconciler{}
-//
-//// StatefulSetControl implements the control logic for updating StatefulSets and their children Pods. It is implemented
-//// as an interface to allow for extensions that provide different semantics. Currently, there is only one implementation.
-//type StatefulSetControlInterface interface {
-//	// UpdateStatefulSet implements the control logic for Pod creation, update, and deletion, and
-//	// persistent volume creation, update, and deletion.
-//	// If an implementation returns a non-nil error, the invocation will be retried using a rate-limited strategy.
-//	// Implementors should sink any errors that they do not wish to trigger a retry, and they may feel free to
-//	// exit exceptionally at any point provided they wish the update to be re-run at a later point in time.
-//	UpdateStatefulSet(set *nuwav1.StatefulSet, pods []*corev1.Pod) error
-//	// ListRevisions returns a array of the ControllerRevisions that represent the revisions of set. If the returned
-//	// error is nil, the returns slice of ControllerRevisions is valid.
-//	ListRevisions(set *nuwav1.StatefulSet) ([]*appsv1.ControllerRevision, error)
-//	// AdoptOrphanRevisions adopts any orphaned ControllerRevisions that match set's Selector. If all adoptions are
-//	// successful the returned error is nil.
-//	AdoptOrphanRevisions(set *nuwav1.StatefulSet, revisions []*appsv1.ControllerRevision) error
-//}
-//
-//// StatefulPodControlInterface defines the interface that StatefulSetController uses to create, update, and delete Pods,
-//// and to update the Status of a StatefulSet. It follows the design paradigms used for PodControl, but its
-//// implementation provides for PVC creation, ordered Pod creation, ordered Pod termination, and Pod identity enforcement.
-//// Like controller.PodControlInterface, it is implemented as an interface to provide for testing fakes.
-//type StatefulPodControlInterface interface {
-//	// CreateStatefulPod create a Pod in a StatefulSet. Any PVCs necessary for the Pod are created prior to creating
-//	// the Pod. If the returned error is nil the Pod and its PVCs have been created.
-//	CreateStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error
-//	// UpdateStatefulPod Updates a Pod in a StatefulSet. If the Pod already has the correct identity and stable
-//	// storage this method is a no-op. If the Pod must be mutated to conform to the Set, it is mutated and updated.
-//	// pod is an in-out parameter, and any updates made to the pod are reflected as mutations to this parameter. If
-//	// the create is successful, the returned error is nil.
-//	UpdateStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error
-//	// DeleteStatefulPod deletes a Pod in a StatefulSet. The pods PVCs are not deleted. If the delete is successful,
-//	// the returned error is nil.
-//	DeleteStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error
-//}
+var patchCodec runtime.Codec
 
 // StatefulSetReconciler reconciles a StatefulSet object
 type StatefulSetReconciler struct {
@@ -99,49 +62,11 @@ type StatefulSetReconciler struct {
 	controllerHistory history.Interface
 	// statusUpdater
 	statusUpdater StatefulSetStatusUpdaterInterface
-	// queue
-	queue workqueue.RateLimitingInterface
-	// recorder
-	recorder record.EventRecorder
-}
-
-// recordPodEvent records an event for verb applied to a Pod in a StatefulSet. If err is nil the generated event will
-// have a reason of v1.EventTypeNormal. If err is not nil the generated event will have a reason of v1.EventTypeWarning.
-func (r *StatefulSetReconciler) recordPodEvent(verb string, set *nuwav1.StatefulSet, pod *corev1.Pod, err error) {
-	if err == nil {
-		reason := fmt.Sprintf("Successful%s", strings.Title(verb))
-		message := fmt.Sprintf("%s Pod %s in StatefulSet %s successful",
-			strings.ToLower(verb), pod.Name, set.Name)
-		r.recorder.Event(set, corev1.EventTypeNormal, reason, message)
-	} else {
-		reason := fmt.Sprintf("Failed%s", strings.Title(verb))
-		message := fmt.Sprintf("%s Pod %s in StatefulSet %s failed error: %s",
-			strings.ToLower(verb), pod.Name, set.Name, err)
-		r.recorder.Event(set, corev1.EventTypeWarning, reason, message)
-	}
-}
-
-// recordClaimEvent records an event for verb applied to the PersistentVolumeClaim of a Pod in a StatefulSet. If err is
-// nil the generated event will have a reason of v1.EventTypeNormal. If err is not nil the generated event will have a
-// reason of v1.EventTypeWarning.
-func (r *StatefulSetReconciler) recordClaimEvent(verb string, set *nuwav1.StatefulSet, pod *corev1.Pod, claim *corev1.PersistentVolumeClaim, err error) {
-	if err == nil {
-		reason := fmt.Sprintf("Successful%s", strings.Title(verb))
-		message := fmt.Sprintf("%s Claim %s Pod %s in StatefulSet %s success",
-			strings.ToLower(verb), claim.Name, pod.Name, set.Name)
-		r.recorder.Event(set, corev1.EventTypeNormal, reason, message)
-	} else {
-		reason := fmt.Sprintf("Failed%s", strings.Title(verb))
-		message := fmt.Sprintf("%s Claim %s for Pod %s in StatefulSet %s failed error: %s",
-			strings.ToLower(verb), claim.Name, pod.Name, set.Name, err)
-		r.recorder.Event(set, corev1.EventTypeWarning, reason, message)
-	}
 }
 
 func (r *StatefulSetReconciler) CreateStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error {
 	// Create the Pod's PVCs prior to creating the Pod
 	if err := r.createPersistentVolumeClaims(set, pod); err != nil {
-		r.recordPodEvent("create", set, pod, err)
 		return err
 	}
 	// If we created the PVCs attempt to create the Pod
@@ -151,13 +76,11 @@ func (r *StatefulSetReconciler) CreateStatefulPod(set *nuwav1.StatefulSet, pod *
 	if apierrors.IsAlreadyExists(err) {
 		return err
 	}
-	//r.recordPodEvent("create", set, pod, err)
 	return err
 }
 
 func (r *StatefulSetReconciler) UpdateStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error {
-	attemptedUpdate := false
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// assume the Pod is consistent
 		consistent := true
 		// if the Pod does not conform to its identity, update the identity and dirty the Pod
@@ -171,7 +94,6 @@ func (r *StatefulSetReconciler) UpdateStatefulPod(set *nuwav1.StatefulSet, pod *
 			updateStorage(set, pod)
 			consistent = false
 			if err := r.createPersistentVolumeClaims(set, pod); err != nil {
-				//r.recordPodEvent("update", set, pod, err)
 				return err
 			}
 		}
@@ -179,8 +101,6 @@ func (r *StatefulSetReconciler) UpdateStatefulPod(set *nuwav1.StatefulSet, pod *
 		if consistent {
 			return nil
 		}
-
-		attemptedUpdate = true
 		// commit the update, retrying on conflicts
 		pod.Namespace = set.Namespace
 		updateErr := r.Client.Update(context.TODO(), pod)
@@ -198,10 +118,6 @@ func (r *StatefulSetReconciler) UpdateStatefulPod(set *nuwav1.StatefulSet, pod *
 
 		return updateErr
 	})
-	if attemptedUpdate {
-		r.recordPodEvent("update", set, pod, err)
-	}
-	return err
 }
 
 func (r *StatefulSetReconciler) DeleteStatefulPod(set *nuwav1.StatefulSet, pod *corev1.Pod) error {
@@ -227,12 +143,8 @@ func (r *StatefulSetReconciler) createPersistentVolumeClaims(set *nuwav1.Statefu
 			if err != nil {
 				errs = append(errs, fmt.Errorf("failed to create PVC %s: %s", claim.Name, err))
 			}
-			if err == nil || !apierrors.IsAlreadyExists(err) {
-				r.recordClaimEvent("create", set, pod, &claim, err)
-			}
 		case err != nil:
 			errs = append(errs, fmt.Errorf("failed to retrieve PVC %s: %s", claim.Name, err))
-			r.recordClaimEvent("create", set, pod, &claim, err)
 		}
 		// TODO: Check resource requirements and accessmodes, update if necessary
 	}
@@ -242,6 +154,8 @@ func (r *StatefulSetReconciler) createPersistentVolumeClaims(set *nuwav1.Statefu
 // addPod adds the statefulset for the pod to the sync queue
 func (r *StatefulSetReconciler) addPod(obj interface{}) {
 	pod := obj.(*corev1.Pod)
+	logf := r.Log.WithName("StatefulSetReconciler")
+	logf.Info("addPod", "namespace", pod.Namespace, "name", pod.Name)
 
 	if pod.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new pod shows up in a state that
@@ -256,8 +170,8 @@ func (r *StatefulSetReconciler) addPod(obj interface{}) {
 		if set == nil {
 			return
 		}
-		klog.V(4).Infof("Pod %s created, labels: %+v", pod.Name, pod.Labels)
-		r.enqueueStatefulSet(set)
+		r.Log.V(4).Info("Pod created", "name", pod.Name, "labels", pod.Labels)
+		//r.enqueueStatefulSet(set)
 		return
 	}
 
@@ -268,9 +182,9 @@ func (r *StatefulSetReconciler) addPod(obj interface{}) {
 		return
 	}
 	klog.V(4).Infof("Orphan Pod %s created, labels: %+v", pod.Name, pod.Labels)
-	for _, set := range sets {
-		r.enqueueStatefulSet(set)
-	}
+	//for _, set := range sets {
+	//	r.enqueueStatefulSet(set)
+	//}
 }
 
 // updatePod adds the statefulset for the current and old pods to the sync queue.
@@ -291,7 +205,7 @@ func (r *StatefulSetReconciler) updatePod(old, cur interface{}) {
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if set := r.resolveControllerRef(oldPod.Namespace, oldControllerRef); set != nil {
-			r.enqueueStatefulSet(set)
+			//r.enqueueStatefulSet(set)
 		}
 	}
 
@@ -301,8 +215,8 @@ func (r *StatefulSetReconciler) updatePod(old, cur interface{}) {
 		if set == nil {
 			return
 		}
-		klog.V(4).Infof("Pod %s updated, objectMeta %+v -> %+v.", curPod.Name, oldPod.ObjectMeta, curPod.ObjectMeta)
-		r.enqueueStatefulSet(set)
+		//klog.V(4).Infof("Pod %s updated, objectMeta %+v -> %+v.", curPod.Name, oldPod.ObjectMeta, curPod.ObjectMeta)
+		//r.enqueueStatefulSet(set)
 		return
 	}
 
@@ -313,10 +227,10 @@ func (r *StatefulSetReconciler) updatePod(old, cur interface{}) {
 		if len(sets) == 0 {
 			return
 		}
-		klog.V(4).Infof("Orphan Pod %s updated, objectMeta %+v -> %+v.", curPod.Name, oldPod.ObjectMeta, curPod.ObjectMeta)
-		for _, set := range sets {
-			r.enqueueStatefulSet(set)
-		}
+		//klog.V(4).Infof("Orphan Pod %s updated, objectMeta %+v -> %+v.", curPod.Name, oldPod.ObjectMeta, curPod.ObjectMeta)
+		//for _, set := range sets {
+		//	r.enqueueStatefulSet(set)
+		//}
 	}
 }
 
@@ -349,8 +263,8 @@ func (r *StatefulSetReconciler) deletePod(obj interface{}) {
 	if set == nil {
 		return
 	}
-	klog.V(4).Infof("Pod %s/%s deleted through %v.", pod.Namespace, pod.Name, utilruntime.GetCaller())
-	r.enqueueStatefulSet(set)
+	//klog.V(4).Infof("Pod %s/%s deleted through %v.", pod.Namespace, pod.Name, utilruntime.GetCaller())
+	//r.enqueueStatefulSet(set)
 }
 
 // getPodsForStatefulSet returns the Pods that a given StatefulSet should manage.
@@ -362,8 +276,9 @@ func (r *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet, s
 	// List all pods to include the pods that don't match the selector anymore but
 	// has a ControllerRef pointing to this StatefulSet.
 	//pods, err := r.podLister.Pods(set.Namespace).List(labels.Everything())
-	podlist := &corev1.PodList{}
-	err := r.Client.List(context.TODO(), podlist, client.InNamespace(set.Namespace), client.MatchingLabelsSelector{Selector: labels.Everything()})
+	ctx := context.Background()
+	podList := &corev1.PodList{}
+	err := r.Client.List(ctx, podList, client.InNamespace(set.Namespace), client.MatchingLabelsSelector{Selector: labels.Everything()})
 	if err != nil {
 		return nil, err
 	}
@@ -376,10 +291,9 @@ func (r *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet, s
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing Pods (see #42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		//fresh, err := ssc.kubeClient.AppsV1().StatefulSets(set.Namespace).Get(set.Name, metav1.GetOptions{})
 		objKey := types.NamespacedName{Namespace: set.Namespace, Name: set.Name}
 		fresh := &nuwav1.StatefulSet{}
-		err := r.Client.Get(context.TODO(), objKey, fresh)
+		err := r.Client.Get(ctx, objKey, fresh)
 		if err != nil {
 			return nil, err
 		}
@@ -391,9 +305,10 @@ func (r *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet, s
 
 	cm := controller.NewPodControllerRefManager(r.podControl, set, selector, controllerKind, canAdoptFunc)
 	pods := make([]*corev1.Pod, 0)
-	for i := range podlist.Items {
-		pods = append(pods, &podlist.Items[i])
+	for i := range podList.Items {
+		pods = append(pods, &podList.Items[i])
 	}
+
 	return cm.ClaimPods(pods, filter)
 }
 
@@ -510,44 +425,11 @@ func (r *StatefulSetReconciler) resolveControllerRef(namespace string, controlle
 	return set
 }
 
-// enqueueStatefulSet enqueues the given statefulset in the work queue.
-func (r *StatefulSetReconciler) enqueueStatefulSet(obj interface{}) {
-	key, err := controller.KeyFunc(obj)
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
-		return
-	}
-	r.queue.Add(key)
-}
-
-// processNextWorkItem dequeues items, processes them, and marks them done. It enforces that the syncHandler is never
-// invoked concurrently with the same key.
-func (r *StatefulSetReconciler) processNextWorkItem() bool {
-	key, quit := r.queue.Get()
-	if quit {
-		return false
-	}
-	defer r.queue.Done(key)
-	if err := r.sync(key.(string)); err != nil {
-		utilruntime.HandleError(fmt.Errorf("Error syncing StatefulSet %v, requeuing: %v", key.(string), err))
-		r.queue.AddRateLimited(key)
-	} else {
-		r.queue.Forget(key)
-	}
-	return true
-}
-
-// worker runs a worker goroutine that invokes processNextWorkItem until the controller's queue is closed
-func (r *StatefulSetReconciler) worker() {
-	for r.processNextWorkItem() {
-	}
-}
-
 // sync syncs the given statefulset.
 func (r *StatefulSetReconciler) sync(key string) error {
 	startTime := time.Now()
 	defer func() {
-		klog.V(4).Infof("Finished syncing statefulset %q (%v)", key, time.Since(startTime))
+		r.Log.V(4).Info("Finished syncing statefulset", "key", key, "startTime", time.Since(startTime))
 	}()
 
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -555,11 +437,11 @@ func (r *StatefulSetReconciler) sync(key string) error {
 		return err
 	}
 	objKey := types.NamespacedName{Namespace: namespace, Name: name}
-	//set, err := r.setLister.StatefulSets(namespace).Get(name)
 	set := &nuwav1.StatefulSet{}
-	err = r.Client.Get(context.TODO(), objKey, set)
+	ctx := context.Background()
+	err = r.Client.Get(ctx, objKey, set)
 	if apierrors.IsNotFound(err) {
-		klog.Infof("StatefulSet has been deleted %v", key)
+		r.Log.V(4).Info("StatefulSet has been deleted", "key", key)
 		return nil
 	}
 	if err != nil {
@@ -588,12 +470,10 @@ func (r *StatefulSetReconciler) sync(key string) error {
 
 // syncStatefulSet syncs a tuple of (statefulset, []*v1.Pod).
 func (r *StatefulSetReconciler) syncStatefulSet(set *nuwav1.StatefulSet, pods []*corev1.Pod) error {
-	klog.V(4).Infof("Syncing StatefulSet %v/%v with %d pods", set.Namespace, set.Name, len(pods))
 	// TODO: investigate where we mutate the set during the update as it is not obvious.
 	if err := r.UpdateStatefulSet(set.DeepCopy(), pods); err != nil {
 		return err
 	}
-	klog.V(4).Infof("Successfully synced StatefulSet %s/%s successful", set.Namespace, set.Name)
 	return nil
 }
 
@@ -604,7 +484,6 @@ func (r *StatefulSetReconciler) syncStatefulSet(set *nuwav1.StatefulSet, pods []
 // in no particular order. Clients using the burst strategy should be careful to ensure they
 // understand the consistency implications of having unpredictable numbers of pods available.
 func (r *StatefulSetReconciler) UpdateStatefulSet(set *nuwav1.StatefulSet, pods []*corev1.Pod) error {
-
 	// list all revisions and sort them
 	revisions, err := r.ListRevisions(set)
 	if err != nil {
@@ -625,27 +504,16 @@ func (r *StatefulSetReconciler) UpdateStatefulSet(set *nuwav1.StatefulSet, pods 
 	}
 
 	// update the set's status
-	err = r.updateStatefulSetStatus(set, status)
-	if err != nil {
+	if err := r.updateStatefulSetStatus(set, status); err != nil {
 		return err
 	}
 
-	klog.V(4).Infof("StatefulSet %s/%s pod status replicas=%d ready=%d current=%d updated=%d",
-		set.Namespace,
-		set.Name,
-		status.Replicas,
-		status.ReadyReplicas,
-		status.CurrentReplicas,
-		status.UpdatedReplicas)
-
-	klog.V(4).Infof("StatefulSet %s/%s revisions current=%s update=%s",
-		set.Namespace,
-		set.Name,
-		status.CurrentRevision,
-		status.UpdateRevision)
-
 	// maintain the set's revision history limit
-	return r.truncateHistory(set, pods, revisions, currentRevision, updateRevision)
+	if err := r.truncateHistory(set, pods, revisions, currentRevision, updateRevision); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *StatefulSetReconciler) ListRevisions(set *nuwav1.StatefulSet) ([]*appsv1.ControllerRevision, error) {
@@ -656,9 +524,7 @@ func (r *StatefulSetReconciler) ListRevisions(set *nuwav1.StatefulSet) ([]*appsv
 	return r.controllerHistory.ListControllerRevisions(set, selector)
 }
 
-func (r *StatefulSetReconciler) AdoptOrphanRevisions(
-	set *nuwav1.StatefulSet,
-	revisions []*appsv1.ControllerRevision) error {
+func (r *StatefulSetReconciler) AdoptOrphanRevisions(set *nuwav1.StatefulSet, revisions []*appsv1.ControllerRevision) error {
 	for i := range revisions {
 		adopted, err := r.controllerHistory.AdoptControllerRevision(set, controllerKind, revisions[i])
 		if err != nil {
@@ -714,8 +580,8 @@ func (r *StatefulSetReconciler) truncateHistory(
 // a new revision, or modify the Revision of an existing revision if an update to set is detected.
 // This method expects that revisions is sorted when supplied.
 func (r *StatefulSetReconciler) getStatefulSetRevisions(
-	set *nuwav1.StatefulSet,
-	revisions []*appsv1.ControllerRevision) (*appsv1.ControllerRevision, *appsv1.ControllerRevision, int32, error) {
+	set *nuwav1.StatefulSet, revisions []*appsv1.ControllerRevision) (
+	*appsv1.ControllerRevision, *appsv1.ControllerRevision, int32, error) {
 	var currentRevision, updateRevision *appsv1.ControllerRevision
 
 	revisionCount := len(revisions)
@@ -883,11 +749,6 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 	}
 
 	if unhealthy > 0 {
-		klog.V(4).Infof("StatefulSet %s/%s has %d unhealthy Pods starting with %s",
-			set.Namespace,
-			set.Name,
-			unhealthy,
-			firstUnhealthyPod.Name)
 	}
 
 	// If the StatefulSet is being deleted, don't do anything other than updating
@@ -947,22 +808,12 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 		// If we find a Pod that is currently terminating, we must wait until graceful deletion
 		// completes before we continue to make progress.
 		if isTerminating(replicas[i]) && monotonic {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to Terminate",
-				set.Namespace,
-				set.Name,
-				replicas[i].Name)
 			return &status, nil
 		}
 		// If we have a Pod that has been created but is not running and ready we can not make progress.
 		// We must ensure that all for each Pod, when we create it, all of its predecessors, with respect to its
 		// ordinal, are Running and Ready.
 		if !isRunningAndReady(replicas[i]) && monotonic {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to be Running and Ready",
-				set.Namespace,
-				set.Name,
-				replicas[i].Name)
 			return &status, nil
 		}
 		// Enforce the StatefulSet invariants
@@ -984,11 +835,6 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 	for target := len(condemned) - 1; target >= 0; target-- {
 		// wait for terminating pods to expire
 		if isTerminating(condemned[target]) {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to Terminate prior to scale down",
-				set.Namespace,
-				set.Name,
-				condemned[target].Name)
 			// block if we are in monotonic mode
 			if monotonic {
 				return &status, nil
@@ -997,17 +843,8 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 		}
 		// if we are in monotonic mode and the condemned target is not the first unhealthy Pod block
 		if !isRunningAndReady(condemned[target]) && monotonic && condemned[target] != firstUnhealthyPod {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to be Running and Ready prior to scale down",
-				set.Namespace,
-				set.Name,
-				firstUnhealthyPod.Name)
 			return &status, nil
 		}
-		klog.V(2).Infof("StatefulSet %s/%s terminating Pod %s for scale down",
-			set.Namespace,
-			set.Name,
-			condemned[target].Name)
 
 		if err := r.DeleteStatefulPod(set, condemned[target]); err != nil {
 			return &status, err
@@ -1038,10 +875,6 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 
 		// delete the Pod if it is not already terminating and does not match the update revision.
 		if getPodRevision(replicas[target]) != updateRevision.Name && !isTerminating(replicas[target]) {
-			klog.V(2).Infof("StatefulSet %s/%s terminating Pod %s for update",
-				set.Namespace,
-				set.Name,
-				replicas[target].Name)
 			err := r.DeleteStatefulPod(set, replicas[target])
 			status.CurrentReplicas--
 			return &status, err
@@ -1049,11 +882,6 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 
 		// wait for unhealthy Pods on update
 		if !isHealthy(replicas[target]) {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to update",
-				set.Namespace,
-				set.Name,
-				replicas[target].Name)
 			return &status, nil
 		}
 
@@ -1064,10 +892,7 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 // updateStatefulSetStatus updates set's Status to be equal to status. If status indicates a complete update, it is
 // mutated to indicate completion. If status is semantically equivalent to set's Status no update is performed. If the
 // returned error is nil, the update is successful.
-func (r *StatefulSetReconciler) updateStatefulSetStatus(
-	set *nuwav1.StatefulSet,
-	status *nuwav1.StatefulSetStatus) error {
-
+func (r *StatefulSetReconciler) updateStatefulSetStatus(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetStatus) error {
 	// complete any in progress rolling update if necessary
 	completeRollingUpdate(set, status)
 
@@ -1075,7 +900,6 @@ func (r *StatefulSetReconciler) updateStatefulSetStatus(
 	if !inconsistentStatus(set, status) {
 		return nil
 	}
-
 	// copy set and update its status
 	set = set.DeepCopy()
 	if err := r.statusUpdater.UpdateStatefulSetStatus(set, status); err != nil {
@@ -1089,11 +913,7 @@ func (r *StatefulSetReconciler) updateStatefulSetStatus(
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=statefulsets/status,verbs=get;update;patch
 func (r *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	logf := r.Log.WithValues("statefulset", req.NamespacedName)
-
-	_ = logf
 	sts := &nuwav1.StatefulSet{}
-
 	if err := r.Client.Get(ctx, req.NamespacedName, sts); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -1101,53 +921,29 @@ func (r *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
-	if err := r.sync(req.NamespacedName.String()); err != nil {
-		return ctrl.Result{}, err
+	key := req.NamespacedName.String()
+	if err := r.sync(key); err != nil {
+		utilruntime.HandleError(fmt.Errorf("Error syncing StatefulSet %v, requeuing: %v", req.NamespacedName.String(), err))
 	}
 
 	return ctrl.Result{}, nil
 }
 
 func (r *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	podInformer, err := mgr.GetCache().GetInformer(&corev1.Pod{})
-	if err != nil {
-		return err
+	r.podControl = &RealPodControl{
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor("statefulset-controller"),
 	}
-
-	podInformer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			// lookup the statefulset and enqueue
-			AddFunc: r.addPod,
-			// lookup current and old statefulset if labels changed
-			UpdateFunc: r.updatePod,
-			// lookup statefulset accounting for deletion tombstones
-			DeleteFunc: r.deletePod,
-		},
-	)
-
-	rest := mgr.GetConfig()
-	kubeClient, err := clientgo.NewForConfig(rest)
-	if err != nil {
-		return err
-	}
-
-	scheme := runtime.NewScheme()
-	recorder := record.NewBroadcaster().NewRecorder(scheme, corev1.EventSource{Component: "nuwa-statefulset-controller"})
-	r.podControl = &controller.RealPodControl{
-		KubeClient: kubeClient,
-		Recorder:   recorder,
-	}
-	r.queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "nuwa-statefulset")
 	r.statusUpdater = NewRealStatefulSetStatusUpdater(mgr.GetClient())
-
-	r.recorder = recorder
-	kubeInformerFactory := informers.NewSharedInformerFactory(kubeClient, controller.NoResyncPeriodFunc())
-	r.controllerHistory = history.NewFakeHistory(kubeInformerFactory.Apps().V1().ControllerRevisions())
+	r.controllerHistory = &realHistory{mgr.GetClient()}
+	patchCodec = serializer.NewCodecFactory(r.Scheme).LegacyCodec(nuwav1.GroupVersion)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.StatefulSet{}).
-		Owns(&corev1.Pod{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&corev1.PersistentVolume{}).
+		Watches(&source.Kind{Type: &corev1.Pod{}},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &nuwav1.StatefulSet{},
+			}).
 		Complete(r)
 }
