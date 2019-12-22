@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
@@ -43,6 +42,8 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sort"
 	"strings"
 	"time"
@@ -63,9 +64,7 @@ type StatefulSetReconciler struct {
 	controllerHistory history.Interface
 	// statusUpdater
 	statusUpdater StatefulSetStatusUpdaterInterface
-	//
-	queue workqueue.RateLimitingInterface
-	//
+	// queue workqueue.RateLimitingInterface
 	recorder record.EventRecorder
 }
 
@@ -115,7 +114,7 @@ func (r *StatefulSetReconciler) CreateStatefulPod(set *nuwav1.StatefulSet, pod *
 	if apierrors.IsAlreadyExists(err) {
 		return err
 	}
-	//r.recordPodEvent("create", set, pod, err)
+	r.recordPodEvent("create", set, pod, err)
 	return err
 }
 
@@ -135,7 +134,7 @@ func (r *StatefulSetReconciler) UpdateStatefulPod(set *nuwav1.StatefulSet, pod *
 			updateStorage(set, pod)
 			consistent = false
 			if err := r.createPersistentVolumeClaims(set, pod); err != nil {
-				//r.recordPodEvent("update", set, pod, err)
+				r.recordPodEvent("update", set, pod, err)
 				return err
 			}
 		}
@@ -481,30 +480,34 @@ func (r *StatefulSetReconciler) enqueueStatefulSet(obj interface{}) {
 		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
 		return
 	}
-	r.queue.Add(key)
-}
 
-// processNextWorkItem dequeues items, processes them, and marks them done. It enforces that the syncHandler is never
-// invoked concurrently with the same key.
-func (r *StatefulSetReconciler) processNextWorkItem() bool {
-	key, quit := r.queue.Get()
-	if quit {
-		return false
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("Couldn't split meta namespace key %+v: %v", obj, err))
+		return
 	}
-	defer r.queue.Done(key)
-	if err := r.sync(key.(string)); err != nil {
-		utilruntime.HandleError(fmt.Errorf("Error syncing StatefulSet %v, requeuing: %v", key.(string), err))
-		r.queue.AddRateLimited(key)
-	} else {
-		r.queue.Forget(key)
+	objKey := types.NamespacedName{Namespace: namespace, Name: name}
+	ctx := context.Background()
+	sts := &nuwav1.StatefulSet{}
+	if err := r.Client.Get(ctx, objKey, sts); err != nil {
+		if apierrors.IsNotFound(err) {
+			return
+		}
+		utilruntime.HandleError(fmt.Errorf("Couldn't get nuwa statefulset %v: %v", objKey.String(), err))
+		return
 	}
-	return true
-}
-
-// worker runs a worker goroutine that invokes processNextWorkItem until the controller's queue is closed
-func (r *StatefulSetReconciler) worker() {
-	for r.processNextWorkItem() {
-	}
+	// Use update annotations to re-enter the queue
+	retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if sts.ObjectMeta.Annotations == nil {
+			sts.ObjectMeta.Annotations = make(map[string]string)
+		}
+		sts.ObjectMeta.Annotations["requeue"] = "true"
+		if err := r.Client.Update(ctx, sts); err != nil {
+			utilruntime.HandleError(fmt.Errorf("Couldn't update nuwa statefulset %v: %v", objKey.String(), err))
+			return nil
+		}
+		return nil
+	})
 }
 
 // sync syncs the given statefulset.
@@ -864,11 +867,6 @@ func (r *StatefulSetReconciler) updateStatefulSet(
 	for i := range replicas {
 		// delete and recreate failed pods
 		if isFailed(replicas[i]) {
-			//r.recorder.Eventf(set, corev1.EventTypeWarning, "RecreatingFailedPod",
-			//	"StatefulSet %s/%s is recreating failed Pod %s",
-			//	set.Namespace,
-			//	set.Name,
-			//	replicas[i].Name)
 			if err := r.DeleteStatefulPod(set, replicas[i]); err != nil {
 				return &status, err
 			}
@@ -1071,6 +1069,7 @@ func (r *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 }
 
 func (r *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	patchCodec = serializer.NewCodecFactory(r.Scheme).LegacyCodec(nuwav1.GroupVersion)
 	podInformer, err := mgr.GetCache().GetInformer(&corev1.Pod{})
 	if err != nil {
 		return err
@@ -1085,6 +1084,27 @@ func (r *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			DeleteFunc: r.deletePod,
 		},
 	)
+	setInformer, err := mgr.GetCache().GetInformer(&nuwav1.StatefulSet{})
+	if err != nil {
+		return err
+	}
+	setInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: r.enqueueStatefulSet,
+			UpdateFunc: func(old, cur interface{}) {
+				oldPS := old.(*nuwav1.StatefulSet)
+				curPS := cur.(*nuwav1.StatefulSet)
+				if oldPS.Status.Replicas != curPS.Status.Replicas {
+					r.Log.Info("Observed updated replica count for StatefulSet",
+						"curPS.Name", curPS.Name,
+						"oldPS.Replicas", oldPS.Status.Replicas,
+						"curPS.Replicas", curPS.Status.Replicas)
+				}
+				r.enqueueStatefulSet(cur)
+			},
+			DeleteFunc: r.enqueueStatefulSet,
+		},
+	)
 	r.recorder = mgr.GetEventRecorderFor("statefulset-controller")
 	r.podControl = &RealPodControl{
 		Client:   mgr.GetClient(),
@@ -1092,14 +1112,17 @@ func (r *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	r.statusUpdater = NewRealStatefulSetStatusUpdater(mgr.GetClient())
 	r.controllerHistory = &realHistory{mgr.GetClient()}
-	r.queue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "statefulset.nuwa.nip.io")
-
-	patchCodec = serializer.NewCodecFactory(r.Scheme).LegacyCodec(nuwav1.GroupVersion)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.StatefulSet{}).
-		Owns(&corev1.Pod{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&corev1.PersistentVolume{}).
+		Watches(
+			&source.Kind{
+				Type: &corev1.Pod{},
+			},
+			&handler.EnqueueRequestForOwner{
+				IsController: true,
+				OwnerType:    &nuwav1.StatefulSet{},
+			},
+		).
 		Complete(r)
 }
