@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -171,41 +172,33 @@ func (r RealPodControl) createPods(nodeName, namespace string, template *corev1.
 	if len(labels.Set(pod.Labels)) == 0 {
 		return fmt.Errorf("unable to create pods, no labels")
 	}
-	ctx := context.Background()
-	//newPod, err := r.KubeClient.CoreV1().Pods(namespace).Create(pod)
-	err = r.Client.Create(ctx, pod)
-	if err != nil {
-		r.Recorder.Eventf(object, corev1.EventTypeWarning, FailedCreatePodReason, "Error creating: %v", err)
-		return err
-	}
-	accessor, err := meta.Accessor(object)
-	if err != nil {
-		return nil
-	}
-	_ = accessor
-	r.Recorder.Eventf(object, corev1.EventTypeNormal, SuccessfulCreatePodReason, "Created pod: %v", pod.Name)
 
-	return nil
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		ctx := context.Background()
+		err = r.Client.Create(ctx, pod)
+		if err != nil {
+			r.Recorder.Eventf(object, corev1.EventTypeWarning, FailedCreatePodReason, "Error creating: %v", err)
+			return err
+		}
+		r.Recorder.Eventf(object, corev1.EventTypeNormal, SuccessfulCreatePodReason, "Created pod: %v", pod.Name)
+		return nil
+	})
 }
 
 func (r RealPodControl) DeletePod(namespace string, podID string, object runtime.Object) error {
-	accessor, err := meta.Accessor(object)
-	if err != nil {
-		return fmt.Errorf("object does not have ObjectMeta, %v", err)
-	}
-	_ = accessor
-	ctx := context.TODO()
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			UID:       types.UID(podID),
-		},
-	}
-	if err := r.Client.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
-		r.Recorder.Eventf(object, corev1.EventTypeWarning, FailedDeletePodReason, "Error deleting: %v", err)
-		return fmt.Errorf("unable to delete pods: %v", err)
-	}
-	r.Recorder.Eventf(object, corev1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted pod: %v", podID)
-
-	return nil
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		ctx := context.TODO()
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				UID:       types.UID(podID),
+			},
+		}
+		if err := r.Client.Delete(ctx, pod); err != nil && !apierrors.IsNotFound(err) {
+			r.Recorder.Eventf(object, corev1.EventTypeWarning, FailedDeletePodReason, "Error deleting: %v", err)
+			return fmt.Errorf("unable to delete pods: %v", err)
+		}
+		r.Recorder.Eventf(object, corev1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted pod: %v", podID)
+		return nil
+	})
 }

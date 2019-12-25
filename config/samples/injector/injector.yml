@@ -6,7 +6,7 @@ metadata:
   name: injector-sample
 spec:
   namespace: fjl1
-  name: water-sample 
+  name: water_injector-sample
   resourceType: Water
   selector:
     matchLabels:

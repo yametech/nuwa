@@ -1,12 +1,13 @@
 /*
-Copyright 2019 yametech.
+Copyright 2019 The yametech Authors.
+Copyright 2019 The Kruise Authors.
 Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-   http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,12 +23,11 @@ import (
 	"encoding/json"
 	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	apps "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	//"k8s.io/client-go/kubernetes/scheme"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
@@ -35,22 +35,15 @@ import (
 	"strconv"
 )
 
-//var patchCodec = scheme.Codecs.LegacyCodec(nuwav1.GroupVersion)
+// controllerKind contains the schema.GroupVersionKind for this controller type.
+var controllerKind = nuwav1.GroupVersion.WithKind("StatefulSet")
 
-// overlappingStatefulSets sorts a list of StatefulSets by creation timestamp, using their names as a tie breaker.
-// Generally used to tie break between StatefulSets that have overlapping selectors.
-type overlappingStatefulSets []*nuwav1.StatefulSet
+var patchCodec runtime.Codec
 
-func (o overlappingStatefulSets) Len() int { return len(o) }
-
-func (o overlappingStatefulSets) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-
-func (o overlappingStatefulSets) Less(i, j int) bool {
-	if o[i].CreationTimestamp.Equal(&o[j].CreationTimestamp) {
-		return o[i].Name < o[j].Name
-	}
-	return o[i].CreationTimestamp.Before(&o[j].CreationTimestamp)
-}
+var updateExpectations = NewUpdateExpectations(func(o metav1.Object) string {
+	p := o.(*v1.Pod)
+	return getPodRevision(p)
+})
 
 // statefulPodRegex is a regular expression that extracts the parent StatefulSet and ordinal from the Name of a Pod
 var statefulPodRegex = regexp.MustCompile("(.*)-([0-9]+)$")
@@ -58,7 +51,7 @@ var statefulPodRegex = regexp.MustCompile("(.*)-([0-9]+)$")
 // getParentNameAndOrdinal gets the name of pod's parent StatefulSet and pod's ordinal as extracted from its Name. If
 // the Pod was not created by a StatefulSet, its parent is considered to be empty string, and its ordinal is considered
 // to be -1.
-func getParentNameAndOrdinal(pod *corev1.Pod) (string, int) {
+func getParentNameAndOrdinal(pod *v1.Pod) (string, int) {
 	parent := ""
 	ordinal := -1
 	subMatches := statefulPodRegex.FindStringSubmatch(pod.Name)
@@ -73,13 +66,13 @@ func getParentNameAndOrdinal(pod *corev1.Pod) (string, int) {
 }
 
 // getParentName gets the name of pod's parent StatefulSet. If pod has not parent, the empty string is returned.
-func getParentName(pod *corev1.Pod) string {
+func getParentName(pod *v1.Pod) string {
 	parent, _ := getParentNameAndOrdinal(pod)
 	return parent
 }
 
 //  getOrdinal gets pod's ordinal. If pod has no ordinal, -1 is returned.
-func getOrdinal(pod *corev1.Pod) int {
+func getOrdinal(pod *v1.Pod) int {
 	_, ordinal := getParentNameAndOrdinal(pod)
 	return ordinal
 }
@@ -91,33 +84,33 @@ func getPodName(set *nuwav1.StatefulSet, ordinal int) string {
 
 // getPersistentVolumeClaimName gets the name of PersistentVolumeClaim for a Pod with an ordinal index of ordinal. claim
 // must be a PersistentVolumeClaim from set's VolumeClaims template.
-func getPersistentVolumeClaimName(set *nuwav1.StatefulSet, claim *corev1.PersistentVolumeClaim, ordinal int) string {
+func getPersistentVolumeClaimName(set *nuwav1.StatefulSet, claim *v1.PersistentVolumeClaim, ordinal int) string {
 	// NOTE: This name format is used by the heuristics for zone spreading in ChooseZoneForVolume
 	return fmt.Sprintf("%s-%s-%d", claim.Name, set.Name, ordinal)
 }
 
 // isMemberOf tests if pod is a member of set.
-func isMemberOf(set *nuwav1.StatefulSet, pod *corev1.Pod) bool {
+func isMemberOf(set *nuwav1.StatefulSet, pod *v1.Pod) bool {
 	return getParentName(pod) == set.Name
 }
 
 // identityMatches returns true if pod has a valid identity and network identity for a member of set.
-func identityMatches(set *nuwav1.StatefulSet, pod *corev1.Pod) bool {
+func identityMatches(set *nuwav1.StatefulSet, pod *v1.Pod) bool {
 	parent, ordinal := getParentNameAndOrdinal(pod)
 	return ordinal >= 0 &&
 		set.Name == parent &&
 		pod.Name == getPodName(set, ordinal) &&
 		pod.Namespace == set.Namespace &&
-		pod.Labels[nuwav1.StatefulSetPodNameLabel] == pod.Name
+		pod.Labels[apps.StatefulSetPodNameLabel] == pod.Name
 }
 
 // storageMatches returns true if pod's Volumes cover the set of PersistentVolumeClaims
-func storageMatches(set *nuwav1.StatefulSet, pod *corev1.Pod) bool {
+func storageMatches(set *nuwav1.StatefulSet, pod *v1.Pod) bool {
 	ordinal := getOrdinal(pod)
 	if ordinal < 0 {
 		return false
 	}
-	volumes := make(map[string]corev1.Volume, len(pod.Spec.Volumes))
+	volumes := make(map[string]v1.Volume, len(pod.Spec.Volumes))
 	for _, volume := range pod.Spec.Volumes {
 		volumes[volume.Name] = volume
 	}
@@ -136,21 +129,15 @@ func storageMatches(set *nuwav1.StatefulSet, pod *corev1.Pod) bool {
 // getPersistentVolumeClaims gets a map of PersistentVolumeClaims to their template names, as defined in set. The
 // returned PersistentVolumeClaims are each constructed with a the name specific to the Pod. This name is determined
 // by getPersistentVolumeClaimName.
-func getPersistentVolumeClaims(set *nuwav1.StatefulSet, pod *corev1.Pod) map[string]corev1.PersistentVolumeClaim {
+func getPersistentVolumeClaims(set *nuwav1.StatefulSet, pod *v1.Pod) map[string]v1.PersistentVolumeClaim {
 	ordinal := getOrdinal(pod)
 	templates := set.Spec.VolumeClaimTemplates
-	claims := make(map[string]corev1.PersistentVolumeClaim, len(templates))
+	claims := make(map[string]v1.PersistentVolumeClaim, len(templates))
 	for i := range templates {
 		claim := templates[i]
 		claim.Name = getPersistentVolumeClaimName(set, &claim, ordinal)
 		claim.Namespace = set.Namespace
-		if claim.Labels != nil {
-			for key, value := range set.Spec.Selector.MatchLabels {
-				claim.Labels[key] = value
-			}
-		} else {
-			claim.Labels = set.Spec.Selector.MatchLabels
-		}
+		claim.Labels = set.Spec.Selector.MatchLabels
 		claims[templates[i].Name] = claim
 	}
 	return claims
@@ -158,15 +145,15 @@ func getPersistentVolumeClaims(set *nuwav1.StatefulSet, pod *corev1.Pod) map[str
 
 // updateStorage updates pod's Volumes to conform with the PersistentVolumeClaim of set's templates. If pod has
 // conflicting local Volumes these are replaced with Volumes that conform to the set's templates.
-func updateStorage(set *nuwav1.StatefulSet, pod *corev1.Pod) {
+func updateStorage(set *nuwav1.StatefulSet, pod *v1.Pod) {
 	currentVolumes := pod.Spec.Volumes
 	claims := getPersistentVolumeClaims(set, pod)
-	newVolumes := make([]corev1.Volume, 0, len(claims))
+	newVolumes := make([]v1.Volume, 0, len(claims))
 	for name, claim := range claims {
-		newVolumes = append(newVolumes, corev1.Volume{
+		newVolumes = append(newVolumes, v1.Volume{
 			Name: name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 					ClaimName: claim.Name,
 					// TODO: Use source definition to set this value when we have one.
 					ReadOnly: false,
@@ -182,7 +169,7 @@ func updateStorage(set *nuwav1.StatefulSet, pod *corev1.Pod) {
 	pod.Spec.Volumes = newVolumes
 }
 
-func initIdentity(set *nuwav1.StatefulSet, pod *corev1.Pod) {
+func initIdentity(set *nuwav1.StatefulSet, pod *v1.Pod) {
 	updateIdentity(set, pod)
 	// Set these immutable fields only on initial Pod creation, not updates.
 	pod.Spec.Hostname = pod.Name
@@ -191,65 +178,65 @@ func initIdentity(set *nuwav1.StatefulSet, pod *corev1.Pod) {
 
 // updateIdentity updates pod's name, hostname, and subdomain, and StatefulSetPodNameLabel to conform to set's name
 // and headless service.
-func updateIdentity(set *nuwav1.StatefulSet, pod *corev1.Pod) {
+func updateIdentity(set *nuwav1.StatefulSet, pod *v1.Pod) {
 	pod.Name = getPodName(set, getOrdinal(pod))
 	pod.Namespace = set.Namespace
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	pod.Labels[nuwav1.StatefulSetPodNameLabel] = pod.Name
+	pod.Labels[apps.StatefulSetPodNameLabel] = pod.Name
 }
 
 // isRunningAndReady returns true if pod is in the PodRunning Phase, if it has a condition of PodReady.
-func isRunningAndReady(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodRunning && podutil.IsPodReady(pod)
+func isRunningAndReady(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning && podutil.IsPodReady(pod)
 }
 
 // isCreated returns true if pod has been created and is maintained by the API server
-func isCreated(pod *corev1.Pod) bool {
+func isCreated(pod *v1.Pod) bool {
 	return pod.Status.Phase != ""
 }
 
 // isFailed returns true if pod has a Phase of PodFailed
-func isFailed(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodFailed
+func isFailed(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodFailed
 }
 
 // isTerminating returns true if pod's DeletionTimestamp has been set
-func isTerminating(pod *corev1.Pod) bool {
+func isTerminating(pod *v1.Pod) bool {
 	return pod.DeletionTimestamp != nil
 }
 
 // isHealthy returns true if pod is running and ready and has not been terminated
-func isHealthy(pod *corev1.Pod) bool {
+func isHealthy(pod *v1.Pod) bool {
 	return isRunningAndReady(pod) && !isTerminating(pod)
 }
 
 // allowsBurst is true if the alpha burst annotation is set.
 func allowsBurst(set *nuwav1.StatefulSet) bool {
-	return set.Spec.PodManagementPolicy == nuwav1.ParallelPodManagement
+	return set.Spec.PodManagementPolicy == apps.ParallelPodManagement
 }
 
 // setPodRevision sets the revision of Pod to revision by adding the StatefulSetRevisionLabel
-func setPodRevision(pod *corev1.Pod, revision string) {
+func setPodRevision(pod *v1.Pod, revision string) {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	pod.Labels[nuwav1.StatefulSetRevisionLabel] = revision
+	pod.Labels[apps.StatefulSetRevisionLabel] = revision
 }
 
 // getPodRevision gets the revision of Pod by inspecting the StatefulSetRevisionLabel. If pod has no revision the empty
 // string is returned.
-func getPodRevision(pod *corev1.Pod) string {
+func getPodRevision(pod *v1.Pod) string {
 	if pod.Labels == nil {
 		return ""
 	}
-	return pod.Labels[nuwav1.StatefulSetRevisionLabel]
+	return pod.Labels[apps.StatefulSetRevisionLabel]
 }
 
 // newStatefulSetPod returns a new Pod conforming to the set's Spec with an identity generated from ordinal.
-func newStatefulSetPod(set *nuwav1.StatefulSet, ordinal int) *corev1.Pod {
-	pod, _ := controller.GetPodFromTemplate(&set.Spec.Template, set, metav1.NewControllerRef(set, nuwav1.GroupVersion.WithKind("StatefulSet")))
+func newStatefulSetPod(set *nuwav1.StatefulSet, ordinal int) *v1.Pod {
+	pod, _ := controller.GetPodFromTemplate(&set.Spec.Template, set, metav1.NewControllerRef(set, controllerKind))
 	pod.Name = getPodName(set, ordinal)
 	initIdentity(set, pod)
 	updateStorage(set, pod)
@@ -260,8 +247,8 @@ func newStatefulSetPod(set *nuwav1.StatefulSet, ordinal int) *corev1.Pod {
 // current revision. updateSet is the representation of the set at the updateRevision. currentRevision is the name of
 // the current revision. updateRevision is the name of the update revision. ordinal is the ordinal of the Pod. If the
 // returned error is nil, the returned Pod is valid.
-func newVersionedStatefulSetPod(currentSet, updateSet *nuwav1.StatefulSet, currentRevision, updateRevision string, ordinal int) *corev1.Pod {
-	if currentSet.Spec.UpdateStrategy.Type == nuwav1.RollingUpdateStatefulSetStrategyType &&
+func newVersionedStatefulSetPod(currentSet, updateSet *nuwav1.StatefulSet, currentRevision, updateRevision string, ordinal int) *v1.Pod {
+	if currentSet.Spec.UpdateStrategy.Type == apps.RollingUpdateStatefulSetStrategyType &&
 		(currentSet.Spec.UpdateStrategy.RollingUpdate == nil && ordinal < int(currentSet.Status.CurrentReplicas)) ||
 		(currentSet.Spec.UpdateStrategy.RollingUpdate != nil && ordinal < int(*currentSet.Spec.UpdateStrategy.RollingUpdate.Partition)) {
 		pod := newStatefulSetPod(currentSet, ordinal)
@@ -274,7 +261,7 @@ func newVersionedStatefulSetPod(currentSet, updateSet *nuwav1.StatefulSet, curre
 }
 
 // Match check if the given StatefulSet's template matches the template stored in the given history.
-func Match(ss *nuwav1.StatefulSet, history *appsv1.ControllerRevision) (bool, error) {
+func Match(ss *nuwav1.StatefulSet, history *apps.ControllerRevision) (bool, error) {
 	patch, err := getPatch(ss)
 	if err != nil {
 		return false, err
@@ -308,13 +295,13 @@ func getPatch(set *nuwav1.StatefulSet) ([]byte, error) {
 // The Revision of the returned ControllerRevision is set to revision. If the returned error is nil, the returned
 // ControllerRevision is valid. StatefulSet revisions are stored as patches that re-apply the current state of set
 // to a new StatefulSet using a strategic merge patch to replace the saved state of the new StatefulSet.
-func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32) (*appsv1.ControllerRevision, error) {
+func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32) (*apps.ControllerRevision, error) {
 	patch, err := getPatch(set)
 	if err != nil {
 		return nil, err
 	}
 	cr, err := history.NewControllerRevision(set,
-		nuwav1.GroupVersion.WithKind("StatefulSet"),
+		controllerKind,
 		set.Spec.Template.Labels,
 		runtime.RawExtension{Raw: patch},
 		revision,
@@ -333,7 +320,7 @@ func newRevision(set *nuwav1.StatefulSet, revision int64, collisionCount *int32)
 
 // ApplyRevision returns a new StatefulSet constructed by restoring the state in revision to set. If the returned error
 // is nil, the returned StatefulSet is valid.
-func ApplyRevision(set *nuwav1.StatefulSet, revision *appsv1.ControllerRevision) (*nuwav1.StatefulSet, error) {
+func ApplyRevision(set *nuwav1.StatefulSet, revision *apps.ControllerRevision) (*nuwav1.StatefulSet, error) {
 	clone := set.DeepCopy()
 	patched, err := strategicpatch.StrategicMergePatch([]byte(runtime.EncodeOrDie(patchCodec, clone)), revision.Data.Raw, clone)
 	if err != nil {
@@ -350,7 +337,7 @@ func ApplyRevision(set *nuwav1.StatefulSet, revision *appsv1.ControllerRevision)
 // nextRevision finds the next valid revision number based on revisions. If the length of revisions
 // is 0 this is 1. Otherwise, it is 1 greater than the largest revision's Revision. This method
 // assumes that revisions has been sorted by Revision.
-func nextRevision(revisions []*appsv1.ControllerRevision) int64 {
+func nextRevision(revisions []*apps.ControllerRevision) int64 {
 	count := len(revisions)
 	if count <= 0 {
 		return 1
@@ -375,7 +362,7 @@ func inconsistentStatus(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetStatu
 // is set to the empty string. status's currentReplicas is set to updateReplicas and its updateReplicas
 // are set to 0.
 func completeRollingUpdate(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetStatus) {
-	if set.Spec.UpdateStrategy.Type == nuwav1.RollingUpdateStatefulSetStrategyType &&
+	if set.Spec.UpdateStrategy.Type == apps.RollingUpdateStatefulSetStrategyType &&
 		status.UpdatedReplicas == status.Replicas &&
 		status.ReadyReplicas == status.Replicas {
 		status.CurrentReplicas = status.UpdatedReplicas
@@ -383,18 +370,10 @@ func completeRollingUpdate(set *nuwav1.StatefulSet, status *nuwav1.StatefulSetSt
 	}
 }
 
-func equalToExpectations(old *nuwav1.StatefulSet, new *nuwav1.StatefulSet) bool {
-	if old.Status.CurrentReplicas == new.Status.CurrentReplicas &&
-		old.Status.CurrentRevision == new.Status.CurrentRevision {
-		return true
-	}
-	return false
-}
-
 // ascendingOrdinal is a sort.Interface that Sorts a list of Pods based on the ordinals extracted
 // from the Pod. Pod's that have not been constructed by StatefulSet's have an ordinal of -1, and are therefore pushed
 // to the front of the list.
-type ascendingOrdinal []*corev1.Pod
+type ascendingOrdinal []*v1.Pod
 
 func (ao ascendingOrdinal) Len() int {
 	return len(ao)
@@ -406,4 +385,55 @@ func (ao ascendingOrdinal) Swap(i, j int) {
 
 func (ao ascendingOrdinal) Less(i, j int) bool {
 	return getOrdinal(ao[i]) < getOrdinal(ao[j])
+}
+
+// NewStatefulsetCondition creates a new statefulset condition.
+func NewStatefulsetCondition(conditionType apps.StatefulSetConditionType, conditionStatus v1.ConditionStatus, reason, message string) apps.StatefulSetCondition {
+	return apps.StatefulSetCondition{
+		Type:               conditionType,
+		Status:             conditionStatus,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+	}
+}
+
+// GetStatefulsetConditition returns the condition with the provided type.
+func GetStatefulsetConditition(status nuwav1.StatefulSetStatus, condType apps.StatefulSetConditionType) *apps.StatefulSetCondition {
+	for i := range status.Conditions {
+		c := status.Conditions[i]
+		if c.Type == condType {
+			return &c
+		}
+	}
+	return nil
+}
+
+// SetStatefulsetCondition updates the statefulset to include the provided condition. If the condition that
+func SetStatefulsetCondition(status *nuwav1.StatefulSetStatus, condition apps.StatefulSetCondition) {
+	currentCond := GetStatefulsetConditition(*status, condition.Type)
+	if currentCond != nil && currentCond.Status == condition.Status && currentCond.Reason == condition.Reason {
+		return
+	}
+	if currentCond != nil && currentCond.Status == condition.Status {
+		condition.LastTransitionTime = currentCond.LastTransitionTime
+	}
+
+	newConditions := filterOutCondition(status.Conditions, condition.Type)
+	status.Conditions = append(newConditions, condition)
+}
+
+func filterOutCondition(conditions []apps.StatefulSetCondition, condType apps.StatefulSetConditionType) []apps.StatefulSetCondition {
+	var newCondtitions []apps.StatefulSetCondition
+	for _, c := range conditions {
+		if c.Type == condType {
+			continue
+		}
+		newCondtitions = append(newCondtitions, c)
+	}
+	return newCondtitions
+}
+
+func getStatefulSetKey(o metav1.Object) string {
+	return o.GetNamespace() + "/" + o.GetName()
 }

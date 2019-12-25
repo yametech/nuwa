@@ -74,6 +74,7 @@ type WaterStatus struct {
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nuwawts
+// +kubebuilder:subresource:scale:specpath=".spec.replicas",statuspath=".status.replicas"
 // +kubebuilder:printcolumn:name="DESIRED-REPLICAS",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
 // +kubebuilder:printcolumn:name="ALREADY-REPLICAS",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
 // +kubebuilder:printcolumn:name="DESIRED-DEPLOYMENTS",type="integer",JSONPath=".status.desired_deployments",description="The desired number of deployments."

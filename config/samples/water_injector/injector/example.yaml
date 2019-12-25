@@ -4,11 +4,11 @@ metadata:
   name: injector-sample
 spec:
   namespace: dxp
-  name: water-sample
+  name: water_injector-sample
   resourceType: Water
   selector:
     matchLabels:
-      app: water-sample
+      app: water_injector-sample
   preContainers:
     - name: count
       image: busybox

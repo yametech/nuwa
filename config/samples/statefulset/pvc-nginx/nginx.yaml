@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: statefulset-sample
 spec:
-  replicas: 4
+  replicas: 10
   serviceName: fake-service
   selector:
     matchLabels:
@@ -19,10 +19,23 @@ spec:
         - name: main
           image: nginx:alpine
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: www
+              mountPath: "/usr/share/nginx/html"
+  volumeClaimTemplates:
+    - metadata:
+        name: www
+        annotations:
+          volume.alpha.kubernetes.io/storage-class: default
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 2Gi
   podManagementPolicy: Parallel
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
       podUpdatePolicy: InPlaceIfPossible
       maxUnavailable: 2
-      partition: 2
+      partition: 1

@@ -27,7 +27,7 @@ import (
 //var incr int64
 
 // log is for logging in this package.
-//var waterlog = logf.Log.WithName("water-resource")
+//var waterlog = logf.Log.WithName("water_injector-resource")
 
 func (r *Water) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -37,7 +37,7 @@ func (r *Water) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-// +kubebuilder:webhook:path=/mutate-nuwa-nip-io-v1-water,mutating=true,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,verbs=create;update,versions=v1,name=mwater.kb.io
+// +kubebuilder:webhook:path=/mutate-nuwa-nip-io-v1-water_injector,mutating=true,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,verbs=create;update,versions=v1,name=mwater.kb.io
 var _ webhook.Defaulter = &Water{}
 
 //func iter(i int) []corev1.Container {
@@ -65,11 +65,11 @@ func (r *Water) Default() {
 	//
 	//r.Spec.Deploy.Template.Spec.Containers = cns
 
-	//waterlog.Info("water webhook default", "name", r.Name)
+	//waterlog.Info("water_injector webhook default", "name", r.Name)
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-nuwa-nip-io-v1-water,mutating=false,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,versions=v1,name=vwater.kb.io
+// +kubebuilder:webhook:verbs=create;update,path=/validate-nuwa-nip-io-v1-water_injector,mutating=false,failurePolicy=fail,groups=nuwa.nip.io,resources=waters,versions=v1,name=vwater.kb.io
 
 var _ webhook.Validator = &Water{}
 

@@ -65,7 +65,7 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// TODO
 	// webhook 中可能存在的问题,容器名冲突
 	// 镜像拉取策略
-	// water or stone 创建时未触发reconcile --- 20191206194700 已解决
+	// water_injector or stone 创建时未触发reconcile --- 20191206194700 已解决
 
 	if instance.Spec.Name == "" {
 		return reconcile.Result{}, fmt.Errorf("%s", "required name is not defined")

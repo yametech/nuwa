@@ -1,40 +1,39 @@
 apiVersion: nuwa.nip.io/v1
 kind: Water
 metadata:
-  name: water-sample
+  name: water_injector-sample-2
 spec:
-  strategy: Release
+  strategy: Alpha
   template:
     metadata:
       name: sample
       labels:
-        app: water-sample
+        app: water_injector-sample-2
     spec:
       containers:
         - name: cn-0
           image: nginx:latest
-          imagePullPolicy: IfNotPresent
   service:
     ports:
       - name: default-web-port
         protocol: TCP
         port: 80
         targetPort: 80
-    type: NodePort
+    type: NodePort 
   coordinates:
     - room: A
       cabinet: W-01
       host: node2
-      replicas: 2
+      replicas: 1
     - room: A
       cabinet: S-02
       host: node3
-      replicas: 5
+      replicas: 1
     - room: B
       cabinet: W-01
       host: node4
-      replicas: 2
+      replicas: 1
     - room: B
       cabinet: S-02
       host: node5
-      replicas: 2
+      replicas: 1

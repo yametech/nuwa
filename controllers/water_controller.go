@@ -47,7 +47,7 @@ type WaterReconciler struct {
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=waters/status,verbs=get;update;patch
 func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	objectKey := req.NamespacedName
-	logf := r.Log.WithValues("water", objectKey.String(), "namespace", req.Namespace)
+	logf := r.Log.WithValues("water_injector", objectKey.String(), "namespace", req.Namespace)
 	ctx := context.WithValue(context.TODO(), "request", req)
 
 	instance := &nuwav1.Water{}
@@ -127,7 +127,7 @@ func (r *WaterReconciler) annotationWater(ctx context.Context, instance *nuwav1.
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
 	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
 	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
-	logf := r.Log.WithValues("water create service", objectKey, "namespace", nameSpace)
+	logf := r.Log.WithValues("water_injector create service", objectKey, "namespace", nameSpace)
 
 	serviceSpec := instance.Spec.Service.DeepCopy()
 	serviceSpec.Selector = map[string]string{"app": instance.Name}

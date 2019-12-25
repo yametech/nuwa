@@ -10,11 +10,27 @@ metadata:
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.replicas
-    description: The number of jobs launched by the statefulset
-    name: Replicas
+    description: The desired number of pods.
+    name: DESIRED
+    type: integer
+  - JSONPath: .status.replicas
+    description: The number of currently all pods.
+    name: CURRENT
+    type: integer
+  - JSONPath: .status.updatedReplicas
+    description: The number of pods updated.
+    name: UPDATED
+    type: integer
+  - JSONPath: .status.readyReplicas
+    description: The number of pods ready.
+    name: READY
     type: integer
   - JSONPath: .metadata.creationTimestamp
-    name: Age
+    description: CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC.
+    name: AGE
     type: date
   group: nuwa.nip.io
   names:
@@ -27,11 +43,14 @@ spec:
   scope: Namespaced
   subresources:
     scale:
+      labelSelectorPath: .status.labelSelector
       specReplicasPath: .spec.replicas
       statusReplicasPath: .status.replicas
     status: {}
   validation:
     openAPIV3Schema:
+      description: StatefulSet is the Schema for the statefulsets API StatefulSet
+        is the Schema for the statefulsets API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -46,7 +65,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: Spec defines the desired identities of pods in this set.
+          description: StatefulSetSpec defines the desired state of StatefulSet
           properties:
             podManagementPolicy:
               description: podManagementPolicy controls how pods are created during
@@ -5854,11 +5873,124 @@ spec:
                   description: RollingUpdate is used to communicate parameters when
                     Type is RollingUpdateStatefulSetStrategyType.
                   properties:
+                    maxUnavailable:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: 'The maximum number of pods that can be unavailable
+                        during the update. Value can be an absolute number (ex: 5)
+                        or a percentage of desired pods (ex: 10%). Absolute number
+                        is calculated from percentage by rounding down. Also, maxUnavailable
+                        can just be allowed to work with Parallel podManagementPolicy.
+                        Defaults to 1.'
+                      x-kubernetes-int-or-string: true
                     partition:
-                      description: Partition indicates the ordinal at which the StatefulSet
-                        should be partitioned. Default value is 0.
+                      description: Partition indicates the number of pods with non-updated
+                        revisions when rolling update. This means controller will
+                        update $(replicas - partition) number of pod Default value
+                        is 0.
                       format: int32
                       type: integer
+                    paused:
+                      description: Paused indicates that the StatefulSet is paused.
+                        Default value is false
+                      type: boolean
+                    podUpdatePolicy:
+                      description: PodUpdatePolicy indicates how pods should be updated
+                        Default value is "ReCreate"
+                      type: string
+                    priorityStrategy:
+                      description: Priorities are the rules for calculating the priority
+                        of updating pods. Each pod to be updated, will pass through
+                        these terms and get a sum of weights. Also, priorityStrategy
+                        can just be allowed to work with Parallel podManagementPolicy.
+                      properties:
+                        orderPriority:
+                          description: 'Order priority terms, pods will be sorted
+                            by the value of orderedKey. For example: ``` orderPriority:
+                            - orderedKey: key1 - orderedKey: key2 ``` First, all pods
+                            which have key1 in labels will be sorted by the value
+                            of key1. Then, the left pods which have no key1 but have
+                            key2 in labels will be sorted by the value of key2 and
+                            put behind those pods have key1.'
+                          items:
+                            description: UpdatePriorityOrder defines order priority.
+                            properties:
+                              orderedKey:
+                                description: Calculate priority by value of this key.
+                                  Values of this key, will be sorted by GetInt(val).
+                                  GetInt method will find the last int in value, such
+                                  as getting 5 in value '5', getting 10 in value 'sts-10'.
+                                type: string
+                            required:
+                            - orderedKey
+                            type: object
+                          type: array
+                        weightPriority:
+                          description: Weight priority terms, pods will be sorted
+                            by the sum of all terms weight.
+                          items:
+                            description: UpdatePriorityWeightTerm defines weight priority.
+                            properties:
+                              matchSelector:
+                                description: MatchSelector is used to select by pod's
+                                  labels.
+                                properties:
+                                  matchExpressions:
+                                    description: matchExpressions is a list of label
+                                      selector requirements. The requirements are
+                                      ANDed.
+                                    items:
+                                      description: A label selector requirement is
+                                        a selector that contains values, a key, and
+                                        an operator that relates the key and values.
+                                      properties:
+                                        key:
+                                          description: key is the label key that the
+                                            selector applies to.
+                                          type: string
+                                        operator:
+                                          description: operator represents a key's
+                                            relationship to a set of values. Valid
+                                            operators are In, NotIn, Exists and DoesNotExist.
+                                          type: string
+                                        values:
+                                          description: values is an array of string
+                                            values. If the operator is In or NotIn,
+                                            the values array must be non-empty. If
+                                            the operator is Exists or DoesNotExist,
+                                            the values array must be empty. This array
+                                            is replaced during a strategic merge patch.
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    description: matchLabels is a map of {key,value}
+                                      pairs. A single {key,value} in the matchLabels
+                                      map is equivalent to an element of matchExpressions,
+                                      whose key field is "key", the operator is "In",
+                                      and the values array contains only "value".
+                                      The requirements are ANDed.
+                                    type: object
+                                type: object
+                              weight:
+                                description: Weight associated with matching the corresponding
+                                  matchExpressions, in the range 1-100.
+                                format: int32
+                                type: integer
+                            required:
+                            - matchSelector
+                            - weight
+                            type: object
+                          type: array
+                      type: object
                   type: object
                 type:
                   description: Type indicates the type of the StatefulSetUpdateStrategy.
@@ -6072,12 +6204,10 @@ spec:
               type: array
           required:
           - selector
-          - serviceName
           - template
           type: object
         status:
-          description: Status is the current status of Pods in this StatefulSet. This
-            data may be out of date by some window of time.
+          description: StatefulSetStatus defines the observed state of StatefulSet
           properties:
             collisionCount:
               description: collisionCount is the count of hash collisions for the
@@ -6126,11 +6256,9 @@ spec:
                 the StatefulSet used to generate Pods in the sequence [0,currentReplicas).
               type: string
             observedGeneration:
-              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                of cluster Important: Run "make" to regenerate code after modifying
-                this file observedGeneration is the most recent generation observed
-                for this StatefulSet. It corresponds to the StatefulSet''s generation,
-                which is updated on mutation by the API Server.'
+              description: observedGeneration is the most recent generation observed
+                for this StatefulSet. It corresponds to the StatefulSet's generation,
+                which is updated on mutation by the API Server.
               format: int64
               type: integer
             readyReplicas:
@@ -6153,7 +6281,10 @@ spec:
               format: int32
               type: integer
           required:
+          - currentReplicas
+          - readyReplicas
           - replicas
+          - updatedReplicas
           type: object
       type: object
   version: v1

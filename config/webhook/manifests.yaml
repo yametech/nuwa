@@ -55,7 +55,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-nuwa-nip-io-v1-water
+      path: /validate-nuwa-nip-io-v1-water_injector
   failurePolicy: Fail
   name: vwater.kb.io
   rules:
