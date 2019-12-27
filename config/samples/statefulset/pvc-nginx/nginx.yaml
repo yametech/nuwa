@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: statefulset-sample
 spec:
-  replicas: 10
+  replicas: 4
   serviceName: fake-service
   selector:
     matchLabels:
@@ -31,7 +31,7 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 2Gi
+            storage: 5Gi
   podManagementPolicy: Parallel
   updateStrategy:
     type: RollingUpdate
