@@ -21,9 +21,6 @@ package controllers
 import (
 	"fmt"
 	"github.com/go-logr/logr"
-	"math"
-	"sort"
-
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -31,8 +28,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	intstrutil "k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog"
 	"k8s.io/kubernetes/pkg/controller/history"
+	"math"
+	"sort"
 )
 
 // ControlInterface implements the control logic for updating StatefulSets and their children Pods. It is implemented
@@ -366,11 +364,11 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 	}
 
 	if unhealthy > 0 {
-		klog.V(4).Infof("StatefulSet %s/%s has %d unhealthy Pods starting with %s",
-			set.Namespace,
-			set.Name,
-			unhealthy,
-			firstUnhealthyPod.Name)
+		ssc.Log.Info("StatefulSet has unhealthy Pods starting with",
+			"ns", set.Namespace,
+			"statefulset_name", set.Name,
+			"status", unhealthy,
+			"pod_name", firstUnhealthyPod.Name)
 	}
 
 	// If the StatefulSet is being deleted, don't do anything other than updating
@@ -433,11 +431,11 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 		// If we find a Pod that is currently terminating, we must wait until graceful deletion
 		// completes before we continue to make progress.
 		if isTerminating(replicas[i]) && monotonic {
-			klog.V(4).Infof(
-				"StatefulSet %s/%s is waiting for Pod %s to Terminate",
-				set.Namespace,
-				set.Name,
-				replicas[i].Name)
+			ssc.Log.Info(
+				"StatefulSet is waiting for Pod to Terminate",
+				"ns", set.Namespace,
+				"statefulset_name", set.Name,
+				"replicas_name", replicas[i].Name)
 			return &status, nil
 		}
 		if shouldUpdateInPlaceReady(replicas[i]) {
@@ -500,17 +498,17 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 		}
 		// if we are in monotonic mode and the condemned target is not the first unhealthy Pod block
 		if !isRunningAndReady(condemned[target]) && monotonic && condemned[target] != firstUnhealthyPod {
-			//ssc.Log.Info(
-			//	"StatefulSet %s/%s is waiting for Pod %s to be Running and Ready prior to scale down",
-			//	set.Namespace,
-			//	set.Name,
-			//	firstUnhealthyPod.Name)
+			ssc.Log.Info(
+				"StatefulSet is waiting for Pod to be Running and Ready prior to scale down",
+				"ns", set.Namespace,
+				"statefulset_name", set.Name,
+				"firstUnhealthyPod_name", firstUnhealthyPod.Name)
 			return &status, nil
 		}
-		//klog.V(2).Infof("StatefulSet %s/%s terminating Pod %s for scale down",
-		//	set.Namespace,
-		//	set.Name,
-		//	condemned[target].Name)
+		ssc.Log.Info("StatefulSet terminating Pod for scale down",
+			"ns", set.Namespace,
+			"statefulset_name", set.Name,
+			"condemnedPod_name", condemned[target].Name)
 
 		if err := ssc.podControl.DeleteStatefulPod(set, condemned[target]); err != nil {
 			return &status, err
@@ -533,7 +531,7 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 
 	// If update expectations have not satisfied yet, skip updating pods
 	if updateSatisfied, updateDirtyPods := updateExpectations.SatisfiedExpectations(getStatefulSetKey(set), updateRevision.Name); !updateSatisfied {
-		klog.V(4).Infof("Not satisfied update for %v, updateDirtyPods=%v", getStatefulSetKey(set), updateDirtyPods)
+		ssc.Log.Info("Not satisfied update for statefulset, updateDirtyPods", "statefulset", getStatefulSetKey(set), "updateDirtyPods", updateDirtyPods)
 		return &status, nil
 	}
 
@@ -542,7 +540,7 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 	maxUnavailable := 1
 	if set.Spec.UpdateStrategy.RollingUpdate != nil {
 		updateMin = int(*set.Spec.UpdateStrategy.RollingUpdate.Partition)
-		maxUnavailable, err = intstrutil.GetValueFromIntOrPercent(intstrutil.ValueOrDefault(set.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable, intstrutil.FromInt(1)), int(replicaCount), false)
+		maxUnavailable, err = intstrutil.GetValueFromIntOrPercent(intstrutil.ValueOrDefault(set.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable, intstrutil.FromInt(1)), int(replicaCount), true)
 		if err != nil {
 			return &status, err
 		}
@@ -565,16 +563,16 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 				// we can not in-place update a pod util its last in-place-update has completed, because
 				// controller must record last imageID in pod annotation.
 				if isInPlaceUpdateCompleted != nil {
-					klog.V(3).Infof("StatefulSet %s/%s waiting for Pod %s last in-place update completed",
-						set.Namespace,
-						set.Name,
-						replicas[target].Name)
+					ssc.Log.Info("StatefulSet waiting for Pod last in-place update completed",
+						"ns", set.Namespace,
+						"statefulset_name", set.Name,
+						"replica_name", replicas[target].Name)
 					skipUpdating = true
 				} else {
-					klog.V(2).Infof("StatefulSet %s/%s patching Pod %s for in-place update",
-						set.Namespace,
-						set.Name,
-						replicas[target].Name)
+					ssc.Log.Info("StatefulSet patching Pod for in-place update",
+						"ns", set.Namespace,
+						"statefulset_name", set.Name,
+						"replica_name", replicas[target].Name)
 					updateErr := ssc.inPlaceUpdatePod(set, replicas[target], inPlaceUpdateSpec)
 					if updateErr != nil && !errors.IsConflict(updateErr) && !isInPlaceOnly(set) {
 						// If it failed to in-place update && error is not conflict && podUpdatePolicy is not InPlaceOnly,
@@ -584,10 +582,10 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 				}
 			}
 			if !useInPlaceUpdate {
-				klog.V(2).Infof("StatefulSet %s/%s terminating Pod %s for update",
-					set.Namespace,
-					set.Name,
-					replicas[target].Name)
+				ssc.Log.Info("StatefulSet terminating Pod for update",
+					"ns", set.Namespace,
+					"statefulset_name", set.Name,
+					"replicas_name", replicas[target].Name)
 				if err := ssc.podControl.DeleteStatefulPod(set, replicas[target]); err != nil {
 					return &status, err
 				}
@@ -600,21 +598,20 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 		if getPodRevision(replicas[target]) != updateRevision.Name || !isHealthy(replicas[target]) {
 			unavailablePods = append(unavailablePods, replicas[target].Name)
 		} else if isInPlaceUpdateCompleted != nil {
-			klog.V(4).Infof("StatefulSet %s/%s check Pod %s in-place update not-ready: %v",
-				set.Namespace,
-				set.Name,
-				replicas[target].Name,
-				isInPlaceUpdateCompleted)
+			ssc.Log.Info("StatefulSet check Pod in-place update not-ready",
+				"ns", set.Namespace,
+				"statefulset_name", set.Name,
+				"replicas_name", replicas[target].Name,
+				"status", isInPlaceUpdateCompleted)
 			unavailablePods = append(unavailablePods, replicas[target].Name)
 		}
 
 		// wait for unhealthy Pods on update
 		if len(unavailablePods) >= maxUnavailable {
-			//klog.V(4).Infof(
-			//	"StatefulSet %s/%s is waiting for unavailable Pods %v to update",
-			//	set.Namespace,
-			//	set.Name,
-			//	unavailablePods)
+			ssc.Log.Info(" is waiting for unavailable Pods to update",
+				"ns", set.Namespace,
+				"statefulset_name", set.Name,
+				"status", unavailablePods)
 			return &status, nil
 		}
 
@@ -631,21 +628,21 @@ func (ssc *defaultStatefulSetControl) inPlaceUpdatePod(set *nuwav1.StatefulSet, 
 
 	// first, we update pod InPlaceUpdateReady condition to False, in order to make pod not-ready during in-place updating
 	if err := ssc.podControl.UpdateStatefulPodCondition(set, pod, newCondition); err != nil {
-		//klog.Warningf("StatefulSet %s/%s failed to update Pod %s condition to False before in-place update: %v",
-		//	set.Namespace,
-		//	set.Name,
-		//	pod.Name,
-		//	err)
+		ssc.Log.Info("StatefulSet failed to update Pod condition to False before in-place update",
+			"ns", set.Namespace,
+			"statefulset_name", set.Name,
+			"pod_name", pod.Name,
+			"error", err)
 		return err
 	}
 
 	// then we update images in pod spec to trigger in-place updating
 	if err := ssc.podControl.InPlaceUpdateStatefulPod(set, pod, inPlaceUpdateSpec); err != nil {
-		//klog.Warningf("StatefulSet %s/%s failed to patch Pod %s for in-place update: %v",
-		//	set.Namespace,
-		//	set.Name,
-		//	pod.Name,
-		//	err)
+		ssc.Log.Info("StatefulSet failed to patch Pod for in-place update",
+			"ns", set.Namespace,
+			"statefulset_name", set.Name,
+			"pod_name", pod.Name,
+			"error", err)
 		return err
 	}
 	updateExpectations.ExpectUpdated(getStatefulSetKey(set), inPlaceUpdateSpec.revision, pod)
