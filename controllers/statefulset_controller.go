@@ -145,7 +145,6 @@ func (ssc *StatefulSetReconciler) adoptOrphanRevisions(set *nuwav1.StatefulSet) 
 		}
 	}
 	if hasOrphans {
-		//fresh, err := ssc.kruiseClient.AppsV1alpha1().StatefulSets(set.Namespace).Get(set.Name, metav1.GetOptions{})
 		fresh := &nuwav1.StatefulSet{}
 		ctx := context.Background()
 		objKey := types.NamespacedName{Namespace: set.Namespace, Name: set.Name}
@@ -170,8 +169,9 @@ func (ssc *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet,
 	// List all pods to include the pods that don't match the selector anymore but
 	// has a ControllerRef pointing to this StatefulSet.
 	//pods, err := ssc.podLister.Pods(set.Namespace).List(labels.Everything())
+	ctx := context.TODO()
 	podList := &v1.PodList{}
-	err := ssc.Client.List(context.Background(), podList, client.InNamespace(set.Namespace))
+	err := ssc.Client.List(ctx, podList, client.InNamespace(set.Namespace))
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,6 @@ func (ssc *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet,
 	canAdoptFunc := kubecontroller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
 		//fresh, err := ssc.kruiseClient.AppsV1alpha1().StatefulSets(set.Namespace).Get(set.Name, metav1.GetOptions{})
 		fresh := &nuwav1.StatefulSet{}
-		ctx := context.Background()
 		objKey := client.ObjectKey{Namespace: set.Namespace, Name: set.Name}
 		err := ssc.Client.Get(ctx, objKey, fresh)
 		if err != nil {
@@ -199,9 +198,9 @@ func (ssc *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet,
 	})
 
 	cm := kubecontroller.NewPodControllerRefManager(ssc.podControl, set, selector, controllerKind, canAdoptFunc)
-	pods := make([]*v1.Pod, 0, len(podList.Items))
-	for i := range pods {
-		pods[i] = &podList.Items[i]
+	pods := make([]*v1.Pod, 0)
+	for i := range podList.Items {
+		pods = append(pods, &podList.Items[i])
 	}
 	return cm.ClaimPods(pods, filter)
 }

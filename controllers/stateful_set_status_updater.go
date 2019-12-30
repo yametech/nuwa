@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,11 +35,11 @@ func (ssu *realStatefulSetStatusUpdater) UpdateStatefulSetStatus(
 		set.Status = *status
 		ctx := context.Background()
 		updateErr := ssu.Client.Status().Update(ctx, set)
-		if updateErr == nil {
-			return nil
+		if updateErr != nil {
+			return updateErr
 		}
 		updated := &nuwav1.StatefulSet{}
-		objKey := types.NamespacedName{Namespace: set.Namespace, Name: set.Name}
+		objKey := client.ObjectKey{Namespace: set.Namespace, Name: set.Name}
 		if err := ssu.Client.Get(ctx, objKey, updated); err == nil {
 			// make a copy so we don't mutate the shared cache
 			set = updated.DeepCopy()

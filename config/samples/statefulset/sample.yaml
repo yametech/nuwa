@@ -1,9 +1,9 @@
 apiVersion: nuwa.nip.io/v1
 kind: StatefulSet
 metadata:
-  name: statefulset-sample
+  name: sample
 spec:
-  replicas: 4
+  replicas: 3
   serviceName: fake-service
   selector:
     matchLabels:

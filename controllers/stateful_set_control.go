@@ -101,11 +101,11 @@ func (ssc *defaultStatefulSetControl) UpdateStatefulSet(set *nuwav1.StatefulSet,
 
 	// perform the main update function and get the status
 	status, getStatusErr := ssc.updateStatefulSet(set, currentRevision, updateRevision, collisionCount, pods, revisions)
-	updateStateusErr := ssc.updateStatefulSetStatus(set, status)
-
 	if getStatusErr != nil {
 		return getStatusErr
 	}
+
+	updateStateusErr := ssc.updateStatefulSetStatus(set, status)
 	if updateStateusErr != nil {
 		return updateStateusErr
 	}
