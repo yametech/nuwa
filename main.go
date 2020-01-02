@@ -61,6 +61,10 @@ func podMutatingServe(client client.Client) {
 		panic(err)
 	}
 }
+func usage() {
+	flag.PrintDefaults()
+	os.Exit(2)
+}
 
 func main() {
 	var metricsAddr string
@@ -68,6 +72,10 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.Usage = usage
+	flag.Set("logtostderr", "true")
+	flag.Set("stderrthreshold", "WARNING")
+	flag.Set("v", "6")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
@@ -87,30 +95,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.WaterReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Water"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Water")
-		os.Exit(1)
-	}
-	if err = (&nuwav1.Water{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Water")
-		os.Exit(1)
-	}
-	if err = (&controllers.StoneReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Stone")
-		os.Exit(1)
-	}
-	if err = (&nuwav1.Stone{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
-		os.Exit(1)
-	}
+	//if err = (&controllers.WaterReconciler{
+	//	Client: mgr.GetClient(),
+	//	Log:    ctrl.Log.WithName("controllers").WithName("Water"),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Water")
+	//	os.Exit(1)
+	//}
+	//if err = (&nuwav1.Water{}).SetupWebhookWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create webhook", "webhook", "Water")
+	//	os.Exit(1)
+	//}
+	//if err = (&controllers.StoneReconciler{
+	//	Client: mgr.GetClient(),
+	//	Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "Stone")
+	//	os.Exit(1)
+	//}
+	//if err = (&nuwav1.Stone{}).SetupWebhookWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
+	//	os.Exit(1)
+	//}
 
 	if err = (&controllers.InjectorReconciler{
 		Client: mgr.GetClient(),
@@ -120,14 +128,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Injector")
 		os.Exit(1)
 	}
-	if err = (&controllers.StatefulSetReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("StatefulSet"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StatefulSet")
-		os.Exit(1)
-	}
+	//if err = (&controllers.StatefulSetReconciler{
+	//	Client: mgr.GetClient(),
+	//	Log:    ctrl.Log.WithName("controllers").WithName("StatefulSet"),
+	//	Scheme: mgr.GetScheme(),
+	//}).SetupWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create controller", "controller", "StatefulSet")
+	//	os.Exit(1)
+	//}
 	// +kubebuilder:scaffold:builder
 	c := mgr.GetClient()
 	go func() {
