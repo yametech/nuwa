@@ -1,9 +1,9 @@
 apiVersion: nuwa.nip.io/v1
 kind: Water
 metadata:
-  name: water_injector-sample-2
+  name: water-injector-sample-2
 spec:
-  strategy: Alpha
+  strategy: Release
   template:
     metadata:
       name: sample
@@ -13,6 +13,7 @@ spec:
       containers:
         - name: cn-0
           image: nginx:latest
+          imagePullPolicy: IfNotPresent
   service:
     ports:
       - name: default-web-port

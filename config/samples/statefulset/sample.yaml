@@ -2,6 +2,7 @@ apiVersion: nuwa.nip.io/v1
 kind: StatefulSet
 metadata:
   name: sample
+  annotations: coordinates:[{"room":"A","cabinet":"W-01","host":"node2","replicas":1},{"room":"A","cabinet":"S-02","host":"node3","replicas":1},{"room":"B","cabinet":"W-01","host":"node4","replicas":1},{"room":"B","cabinet":"S-02","host":"node5","replicas":1}]
 spec:
   replicas: 3
   serviceName: fake-service

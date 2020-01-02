@@ -1,14 +1,14 @@
 apiVersion: nuwa.nip.io/v1
 kind: Water
 metadata:
-  name: water_injector-sample
+  name: water-sample
 spec:
-  strategy: Release
+  strategy: Alpha
   template:
     metadata:
       name: sample
       labels:
-        app: water_injector-sample
+        app: water-sample
     spec:
       containers:
         - name: cn-0

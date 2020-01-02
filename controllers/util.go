@@ -131,18 +131,3 @@ func ownerReference(obj metav1.Object, kindName string) []metav1.OwnerReference 
 func deploymentName(coordinateName string, instance *nuwav1.Water) string {
 	return fmt.Sprintf("%s-%s", instance.Name, strings.ToLower(coordinateName))
 }
-
-func coordinateName(c *nuwav1.Coordinate) (string, error) {
-	res := ""
-	if c.Room == "" {
-		return "", ErrNeedAtLeastRoom
-	}
-	res += c.Room
-	res += "-"
-	if c.Cabinet != "" {
-		res += c.Cabinet
-	} else {
-		res += "Non"
-	}
-	return res, nil
-}

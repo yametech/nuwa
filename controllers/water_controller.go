@@ -1,5 +1,5 @@
 /*
-Copyright 2019 yametech.
+Copyright 2019 yametech Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -84,7 +83,7 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			size = local.Coordinate.Replicas
 			logf.Info("Water deploy strategy is Release")
 		}
-		objKey := types.NamespacedName{
+		objKey := client.ObjectKey{
 			Namespace: req.Namespace,
 			Name:      deploymentName(local.Name, instance),
 		}
@@ -156,7 +155,7 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 	return nil
 }
 
-func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types.NamespacedName, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
+func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName client.ObjectKey, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
 	labels := map[string]string{"app": instance.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	newTemplate := instance.Spec.Template.DeepCopy()
@@ -212,7 +211,7 @@ func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName types
 
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
 	old := &nuwav1.Water{}
-	objKey := types.NamespacedName{Namespace: instance.Namespace, Name: instance.Name}
+	objKey := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
 	if err := r.Client.Get(ctx, objKey, old); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -230,7 +229,7 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 		for i := range coordinators {
 			local := coordinators[i]
 			expectStatus.DesiredReplicas += local.Coordinate.Replicas
-			objKey := types.NamespacedName{Namespace: instance.Namespace, Name: deploymentName(local.Name, instance)}
+			objKey := client.ObjectKey{Namespace: instance.Namespace, Name: deploymentName(local.Name, instance)}
 			tmp := &appsv1.Deployment{}
 			if err := r.Client.Get(ctx, objKey, tmp); err != nil {
 				if errors.IsNotFound(err) {
@@ -278,7 +277,7 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 					if err != nil {
 						return err
 					}
-					objKey := types.NamespacedName{
+					objKey := client.ObjectKey{
 						Namespace: instance.Namespace,
 						Name:      deploymentName(coorName, instance),
 					}

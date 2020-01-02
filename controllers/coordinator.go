@@ -16,7 +16,7 @@ const (
 
 type CoordinateErr error
 
-var ErrNeedAtLeastRoom = fmt.Errorf("%s", "coordinate need to specify at least room")
+var ErrNeedAtLeastRoom CoordinateErr = fmt.Errorf("%s", "coordinate need to specify at least room")
 
 type coordinator struct {
 	Client       client.Client
@@ -24,7 +24,6 @@ type coordinator struct {
 	Name         string               `json:"name,omitempty"`
 	Coordinate   *nuwav1.Coordinate   `json:"coordinate,omitempty"`
 	NodeAffinity *corev1.NodeAffinity `json:"nodeAffinity,omitempty"`
-	NodeList     *corev1.NodeList     `json:"nodeList,omitempty"`
 	NodeNameList []string             `json:"nodeNameList,omitempty"`
 }
 
@@ -32,53 +31,139 @@ func newLocalCoordinate(index int, client client.Client, coordinate nuwav1.Coord
 	if client == nil {
 		return nil, fmt.Errorf("client is nil")
 	}
-	lc := &coordinator{
+	localCoordinator := &coordinator{
 		Index:      index,
 		Client:     client,
 		Coordinate: &coordinate,
 	}
-	if err := lc.setCoordinateName(); err != nil {
+
+	crdsName, err := coordinateName(localCoordinator.Coordinate)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := lc.findMatchNode(); err != nil {
+	localCoordinator.Name = crdsName
+
+	coordinateLabels, err := coordinateMatchLabels(&coordinate)
+	if err != nil {
 		return nil, err
 	}
 
-	lc.generateAffinity()
+	hostLabels, err := hostMatchLabels(&coordinate)
+	if err != nil {
+		return nil, err
+	}
 
-	return lc, nil
+	nodeList, err := findNodeWithLabels(client, hostLabels, coordinateLabels)
+	if err != nil {
+		return nil, err
+	}
+
+	localCoordinator.NodeNameList = nodeList
+
+	nodeAffinity := organizationNodeAffinity(localCoordinator.Coordinate, localCoordinator.NodeNameList)
+
+	localCoordinator.NodeAffinity = nodeAffinity
+
+	return localCoordinator, nil
 }
 
-func (l *coordinator) generateAffinity() {
+func makeLocalCoordinates(client client.Client, coordinates nuwav1.Coordinates) (cds []*coordinator, err error) {
+	for i := range coordinates {
+		c, newErr := newLocalCoordinate(i, client, coordinates[i])
+		if newErr != nil {
+			err = newErr
+			return
+		}
+		cds = append(cds, c)
+	}
+
+	return
+}
+
+func findNodeWithLabels(cli client.Client, hostLabels, crdsLabels client.MatchingLabels) (nodeList []string, err error) {
+	nodes := &corev1.NodeList{}
+	ctx := context.TODO()
+	if err = cli.List(ctx, nodes, hostLabels, crdsLabels); err != nil {
+		return
+	}
+
+	for i := range nodes.Items {
+		nodeList = append(
+			nodeList,
+			nodes.Items[i].Name,
+		)
+	}
+
+	return
+}
+
+func coordinateMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) {
+	if c.Room == "" {
+		return nil, ErrNeedAtLeastRoom
+	}
+	cms := make(client.MatchingLabels)
+	cms[nuwaRoomFlag] = c.Room
+
+	if c.Cabinet != "" {
+		cms[nuwaCabinetFlag] = c.Cabinet
+	}
+
+	return cms, nil
+}
+
+func hostMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) {
+	cms := make(client.MatchingLabels)
+	if c.Host != "" {
+		cms[nuwaHostFlag] = c.Host
+	}
+	return cms, nil
+}
+
+func coordinateName(c *nuwav1.Coordinate) (string, error) {
+	res := ""
+	if c.Room == "" {
+		return "", ErrNeedAtLeastRoom
+	}
+	res += c.Room
+	res += "-"
+	if c.Cabinet != "" {
+		res += c.Cabinet
+	} else {
+		res += "Non"
+	}
+	return res, nil
+}
+
+func organizationNodeAffinity(c *nuwav1.Coordinate, nodeList []string) *corev1.NodeAffinity {
 	nodeSelectorRequirements := make([]corev1.NodeSelectorRequirement, 0)
 	nodeSelectorRequirements = append(nodeSelectorRequirements,
 		corev1.NodeSelectorRequirement{
 			Key:      nuwaRoomFlag,
 			Operator: corev1.NodeSelectorOpIn,
-			Values:   []string{l.Coordinate.Room},
+			Values:   []string{c.Room},
 		},
 	)
-	if l.Coordinate.Cabinet != "" {
+	if c.Cabinet != "" {
 		nodeSelectorRequirements = append(nodeSelectorRequirements,
 			corev1.NodeSelectorRequirement{
 				Key:      nuwaCabinetFlag,
 				Operator: corev1.NodeSelectorOpIn,
-				Values:   []string{l.Coordinate.Cabinet},
+				Values:   []string{c.Cabinet},
 			},
 		)
 	}
-	if l.Coordinate.Host != "" {
+	if c.Host != "" {
 		nodeSelectorRequirements = append(nodeSelectorRequirements,
 			corev1.NodeSelectorRequirement{
 				Key:      nuwaHostFlag,
 				Operator: corev1.NodeSelectorOpIn,
-				Values:   l.NodeNameList,
+				Values:   nodeList,
 			},
 		)
 	}
 
-	l.NodeAffinity = &corev1.NodeAffinity{
+	return &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
 				corev1.NodeSelectorTerm{
@@ -86,78 +171,10 @@ func (l *coordinator) generateAffinity() {
 						corev1.NodeSelectorRequirement{
 							Key:      nuwaRoomFlag,
 							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{l.Coordinate.Room},
-						},
-					},
-				},
-			},
-		},
+							Values:   []string{c.Room},
+						}}}}},
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 			corev1.PreferredSchedulingTerm{Weight: 100,
 				Preference: corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements},
-			},
-		},
-	}
-
-}
-
-func (l *coordinator) findMatchNode() (err error) {
-	labels, err := l.generateCoordinateMatchLabels()
-	if err != nil {
-		return err
-	}
-	l.NodeList = &corev1.NodeList{}
-	if err = l.Client.List(context.TODO(), l.NodeList, labels, l.generateHostMatchLabels()); err != nil {
-		return err
-	}
-	for i := range l.NodeList.Items {
-		l.NodeNameList = append(l.NodeNameList, l.NodeList.Items[i].Name)
-	}
-
-	return
-}
-
-func (l *coordinator) generateCoordinateMatchLabels() (clientMatchLabs client.MatchingLabels, err error) {
-	if l.Coordinate.Room == "" {
-		return nil, ErrNeedAtLeastRoom
-	}
-	clientMatchLabs = make(client.MatchingLabels)
-	clientMatchLabs[nuwaRoomFlag] = l.Coordinate.Room
-
-	if l.Coordinate.Cabinet != "" {
-		clientMatchLabs[nuwaCabinetFlag] = l.Coordinate.Cabinet
-	}
-
-	return
-}
-
-func (l *coordinator) generateHostMatchLabels() (clientMatchLabs client.MatchingLabels) {
-	clientMatchLabs = make(client.MatchingLabels)
-	if l.Coordinate.Host != "" {
-		clientMatchLabs[nuwaHostFlag] = l.Coordinate.Host
-	}
-
-	return
-}
-
-func (l *coordinator) setCoordinateName() error {
-	res, err := coordinateName(l.Coordinate)
-	if err != nil {
-		return err
-	}
-	l.Name = res
-
-	return nil
-}
-
-func makeLocalCoordinates(client client.Client, coordinates nuwav1.Coordinates) (cds []*coordinator, err error) {
-	for i := range coordinates {
-		c, err := newLocalCoordinate(i, client, coordinates[i])
-		if err != nil {
-			return nil, err
-		}
-		cds = append(cds, c)
-	}
-
-	return
+			}}}
 }

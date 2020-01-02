@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/kubernetes/pkg/controller/history"
 	"math"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 )
 
@@ -56,16 +57,18 @@ type ControlInterface interface {
 // to update the status of StatefulSets. You should use an instance returned from NewRealStatefulPodControl() for any
 // scenario other than testing.
 func NewDefaultStatefulSetControl(
+	client client.Client,
 	podControl StatefulPodControlInterface,
 	statusUpdater StatusUpdaterInterface,
 	controllerHistory history.Interface,
 	recorder record.EventRecorder,
 	log logr.Logger,
 ) ControlInterface {
-	return &defaultStatefulSetControl{podControl, statusUpdater, controllerHistory, recorder, log}
+	return &defaultStatefulSetControl{client, podControl, statusUpdater, controllerHistory, recorder, log}
 }
 
 type defaultStatefulSetControl struct {
+	client.Client
 	podControl        StatefulPodControlInterface
 	statusUpdater     StatusUpdaterInterface
 	controllerHistory history.Interface
@@ -332,6 +335,7 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 	for ord := 0; ord < replicaCount; ord++ {
 		if replicas[ord] == nil {
 			replicas[ord] = newVersionedStatefulSetPod(
+				ssc.Client,
 				currentSet,
 				updateSet,
 				currentRevision.Name,
@@ -399,6 +403,7 @@ func (ssc *defaultStatefulSetControl) updateStatefulSet(
 			}
 			status.Replicas--
 			replicas[i] = newVersionedStatefulSetPod(
+				ssc.Client,
 				currentSet,
 				updateSet,
 				currentRevision.Name,

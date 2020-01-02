@@ -27,11 +27,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	"k8s.io/kubernetes/pkg/controller"
 	"k8s.io/kubernetes/pkg/controller/history"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sort"
 	"strconv"
 )
 
@@ -235,11 +238,46 @@ func getPodRevision(pod *v1.Pod) string {
 }
 
 // newStatefulSetPod returns a new Pod conforming to the set's Spec with an identity generated from ordinal.
-func newStatefulSetPod(set *nuwav1.StatefulSet, ordinal int) *v1.Pod {
+func newStatefulSetPod(client client.Client, set *nuwav1.StatefulSet, ordinal int) *v1.Pod {
 	pod, _ := controller.GetPodFromTemplate(&set.Spec.Template, set, metav1.NewControllerRef(set, controllerKind))
 	pod.Name = getPodName(set, ordinal)
 	initIdentity(set, pod)
 	updateStorage(set, pod)
+	if coords, ok := set.Annotations["cooradinates"]; ok {
+		var coordinates nuwav1.Coordinates
+		if err := json.Unmarshal([]byte(coords), coordinates); err != nil {
+			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s unmarshal coordiantes %s error %s", set.Namespace, set.Name, coords, err))
+			return pod
+		}
+		var crd nuwav1.Coordinate
+		if len(coordinates)-1 < ordinal {
+			sort.Sort(&coordinates)
+			crd = coordinates[ordinal]
+		} else {
+			crd = coordinates[0]
+		}
+		coorLabels, err := coordinateMatchLabels(&crd)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate coordiante label error %s", set.Namespace, set.Name, err))
+			return pod
+		}
+		hostLabels, err := hostMatchLabels(&crd)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate host label error %s", set.Namespace, set.Name, err))
+			return pod
+		}
+		nodeList, err := findNodeWithLabels(client, coorLabels, hostLabels)
+		if err != nil {
+			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s find node list error %s", set.Namespace, set.Name, err))
+			return pod
+		}
+
+		nodeAffinity := organizationNodeAffinity(&crd, nodeList)
+		if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil {
+			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: nodeAffinity}
+		}
+
+	}
 	return pod
 }
 
@@ -247,15 +285,15 @@ func newStatefulSetPod(set *nuwav1.StatefulSet, ordinal int) *v1.Pod {
 // current revision. updateSet is the representation of the set at the updateRevision. currentRevision is the name of
 // the current revision. updateRevision is the name of the update revision. ordinal is the ordinal of the Pod. If the
 // returned error is nil, the returned Pod is valid.
-func newVersionedStatefulSetPod(currentSet, updateSet *nuwav1.StatefulSet, currentRevision, updateRevision string, ordinal int) *v1.Pod {
+func newVersionedStatefulSetPod(client client.Client, currentSet, updateSet *nuwav1.StatefulSet, currentRevision, updateRevision string, ordinal int) *v1.Pod {
 	if currentSet.Spec.UpdateStrategy.Type == apps.RollingUpdateStatefulSetStrategyType &&
 		(currentSet.Spec.UpdateStrategy.RollingUpdate == nil && ordinal < int(currentSet.Status.CurrentReplicas)) ||
 		(currentSet.Spec.UpdateStrategy.RollingUpdate != nil && ordinal < int(*currentSet.Spec.UpdateStrategy.RollingUpdate.Partition)) {
-		pod := newStatefulSetPod(currentSet, ordinal)
+		pod := newStatefulSetPod(client, currentSet, ordinal)
 		setPodRevision(pod, currentRevision)
 		return pod
 	}
-	pod := newStatefulSetPod(updateSet, ordinal)
+	pod := newStatefulSetPod(client, updateSet, ordinal)
 	setPodRevision(pod, updateRevision)
 	return pod
 }

@@ -160,7 +160,7 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 				pods = append(pods, matchingContainer)
 			}
 		}
-		podCopy.Spec.Containers = make([]corev1.Container, len(pods))
+		//podCopy.Spec.Containers = make([]corev1.Container, len(pods))
 		podCopy.Spec.Containers = append(pods, podCopy.Spec.Containers...)
 	}
 	if matchingIPods[0].Spec.AfterContainers != nil && matchingIPods[0].Spec.PreContainers == nil {

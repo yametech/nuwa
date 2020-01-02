@@ -34,9 +34,7 @@ import (
 	kubecontroller "k8s.io/kubernetes/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 )
 
@@ -223,6 +221,7 @@ func (ssc *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("statefulset-controller")
 	statefulsetPodControl := NewRealStatefulPodControl(ssc.Client, recorder)
 	ssc.control = NewDefaultStatefulSetControl(
+		ssc.Client,
 		statefulsetPodControl,
 		NewRealStatefulSetStatusUpdater(ssc.Client),
 		&realHistory{ssc.Client},
@@ -247,6 +246,7 @@ func (ssc *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.StatefulSet{}).
-		Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
+		For(&v1.Pod{}).
+		//Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		Complete(ssc)
 }
