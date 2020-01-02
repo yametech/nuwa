@@ -32,7 +32,7 @@ type InjectorSpec struct {
 
 	PreContainers []corev1.Container `json:"preContainers,omitempty"`
 
-	AfterContainers []corev1.Container `json:"afterContainers,omitempty"`
+	PostContainers []corev1.Container `json:"postContainers,omitempty"`
 
 	ResourceType string `json:"resourceType,omitempty"`
 

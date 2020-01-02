@@ -154,8 +154,8 @@ func (in *InjectorSpec) DeepCopyInto(out *InjectorSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.AfterContainers != nil {
-		in, out := &in.AfterContainers, &out.AfterContainers
+	if in.PreContainers != nil {
+		in, out := &in.PreContainers, &out.PreContainers
 		*out = make([]corev1.Container, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
