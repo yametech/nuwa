@@ -483,7 +483,7 @@ func getStatefulSetKey(o metav1.Object) string {
 	return o.GetNamespace() + "/" + o.GetName()
 }
 
-func realReconcileName(objKey client.ObjectKey) (client.ObjectKey) {
+func realReconcileName(objKey client.ObjectKey) client.ObjectKey {
 	subMatches := statefulPodRegex.FindStringSubmatch(objKey.Name)
 	if len(subMatches) < 3 {
 		return objKey
