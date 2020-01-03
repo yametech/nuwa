@@ -243,19 +243,27 @@ func newStatefulSetPod(client client.Client, set *nuwav1.StatefulSet, ordinal in
 	pod.Name = getPodName(set, ordinal)
 	initIdentity(set, pod)
 	updateStorage(set, pod)
-	if coords, ok := set.Annotations["cooradinates"]; ok {
-		var coordinates nuwav1.Coordinates
-		if err := json.Unmarshal([]byte(coords), coordinates); err != nil {
+	pod = coordinatorPod(client, set, pod, ordinal)
+	return pod
+}
+
+func coordinatorPod(client client.Client, set *nuwav1.StatefulSet, pod *v1.Pod, ordinal int) *v1.Pod {
+	if set.Spec.Template.Annotations == nil {
+		return pod
+	}
+	if coords, ok := set.Spec.Template.Annotations["coordinates"]; ok {
+		coordinates := make(nuwav1.Coordinates, 0)
+		if err := json.Unmarshal([]byte(coords), &coordinates); err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s unmarshal coordiantes %s error %s", set.Namespace, set.Name, coords, err))
 			return pod
 		}
 		var crd nuwav1.Coordinate
 		if len(coordinates)-1 < ordinal {
 			sort.Sort(&coordinates)
-			crd = coordinates[ordinal]
-		} else {
-			crd = coordinates[0]
+			ordinal -= len(coordinates)
 		}
+
+		crd = coordinates[ordinal]
 		coorLabels, err := coordinateMatchLabels(&crd)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate coordiante label error %s", set.Namespace, set.Name, err))
@@ -276,7 +284,6 @@ func newStatefulSetPod(client client.Client, set *nuwav1.StatefulSet, ordinal in
 		if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: nodeAffinity}
 		}
-
 	}
 	return pod
 }
@@ -474,4 +481,18 @@ func filterOutCondition(conditions []apps.StatefulSetCondition, condType apps.St
 
 func getStatefulSetKey(o metav1.Object) string {
 	return o.GetNamespace() + "/" + o.GetName()
+}
+
+func realReconcileName(objKey client.ObjectKey) (client.ObjectKey) {
+	subMatches := statefulPodRegex.FindStringSubmatch(objKey.Name)
+	if len(subMatches) < 3 {
+		return objKey
+	}
+	parentName := subMatches[1]
+	if _, err := strconv.ParseInt(subMatches[2], 10, 32); err != nil {
+		return objKey
+	}
+	newObjKey := client.ObjectKey{Namespace: objKey.Namespace, Name: parentName}
+
+	return newObjKey
 }

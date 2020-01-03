@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,7 +50,7 @@ type InjectorReconciler struct {
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=injectors/status,verbs=get;update;patch
 func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	logf := r.Log.WithValues("injector", req.NamespacedName)
+	//logf := r.Log.WithValues("injector", req.NamespacedName)
 	// Fetch the PodPreset instance
 	instance := &nuwav1.Injector{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -65,9 +64,9 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("%s", "required name is not defined")
 	}
 
-	logf.Info("Fetched nuwav1 injector object")
+	//logf.Info("Fetched nuwav1 injector object")
 
-	objKey := types.NamespacedName{Namespace: instance.Spec.NameSpace, Name: instance.Spec.Name}
+	objKey := client.ObjectKey{Namespace: instance.Spec.NameSpace, Name: instance.Spec.Name}
 	switch instance.Spec.ResourceType {
 	case "Water":
 		water := &nuwav1.Water{}

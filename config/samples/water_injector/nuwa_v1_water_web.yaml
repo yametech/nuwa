@@ -3,7 +3,7 @@ kind: Water
 metadata:
   name: water-sample
 spec:
-  strategy: Alpha
+  strategy: Release
   template:
     metadata:
       name: sample
@@ -29,12 +29,12 @@ spec:
     - room: A
       cabinet: S-02
       host: node3
-      replicas: 5
+      replicas: 0
     - room: B
       cabinet: W-01
       host: node4
-      replicas: 2
+      replicas: 0
     - room: B
       cabinet: S-02
       host: node5
-      replicas: 2
+      replicas: 0

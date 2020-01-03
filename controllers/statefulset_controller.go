@@ -29,12 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	kubecontroller "k8s.io/kubernetes/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"time"
 )
 
@@ -89,15 +90,16 @@ func (ssc *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		ssc.Log.Info("Finished syncing statefulset", "key", key, "time_since", time.Since(startTime))
 	}()
 
+	//ssc.Log.Info("StatefulSet has been deleted", "key", key)
+	//updateExpectations.DeleteExpectations(key)
+	objKey := realReconcileName(req.NamespacedName)
 	set := &nuwav1.StatefulSet{}
-	err := ssc.Client.Get(ctx, req.NamespacedName, set)
-	if errors.IsNotFound(err) {
-		ssc.Log.Info("StatefulSet has been deleted", "key", key)
-		updateExpectations.DeleteExpectations(key)
-		return reconcile.Result{}, nil
-	}
+	err := ssc.Client.Get(ctx, objKey, set)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to retrieve StatefulSet %v from store: %v", key, err))
+		if errors.IsNotFound(err) {
+			utilruntime.HandleError(fmt.Errorf("unable to retrieve StatefulSet %v from store: %v", key, err))
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -145,7 +147,7 @@ func (ssc *StatefulSetReconciler) adoptOrphanRevisions(set *nuwav1.StatefulSet) 
 	if hasOrphans {
 		fresh := &nuwav1.StatefulSet{}
 		ctx := context.Background()
-		objKey := types.NamespacedName{Namespace: set.Namespace, Name: set.Name}
+		objKey := client.ObjectKey{Namespace: set.Namespace, Name: set.Name}
 		err := ssc.Client.Get(ctx, objKey, fresh)
 		if err != nil {
 			return err
@@ -246,7 +248,6 @@ func (ssc *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&nuwav1.StatefulSet{}).
-		For(&v1.Pod{}).
-		//Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
+		Watches(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}).
 		Complete(ssc)
 }
