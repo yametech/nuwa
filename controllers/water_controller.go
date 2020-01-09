@@ -272,7 +272,7 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 		if len(diffSlice) > 0 {
 			for _, c := range tmp1 {
 				if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
-					r.Log.Info("Delete", "room", c.Room, "cabinet", c.Cabinet, "host", c.Host)
+					r.Log.Info("Delete", "room", c.Zone, "cabinet", c.Rack, "host", c.Host)
 					coorName, err := coordinateName(&c)
 					if err != nil {
 						return err

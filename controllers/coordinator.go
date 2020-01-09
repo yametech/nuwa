@@ -8,15 +8,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	nuwaRoomFlag    = "nuwa.io/room"
-	nuwaCabinetFlag = "nuwa.io/cabinet"
-	nuwaHostFlag    = "nuwa.io/host"
-)
-
 type CoordinateErr error
 
-var ErrNeedAtLeastRoom CoordinateErr = fmt.Errorf("%s", "coordinate need to specify at least room")
+var ErrNeedAtLeastZone CoordinateErr = fmt.Errorf("%s", "coordinate need to specify at least zone")
 
 type coordinator struct {
 	Client       client.Client
@@ -99,14 +93,14 @@ func findNodeWithLabels(cli client.Client, hostLabels, crdsLabels client.Matchin
 }
 
 func coordinateMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) {
-	if c.Room == "" {
-		return nil, ErrNeedAtLeastRoom
+	if c.Zone == "" {
+		return nil, ErrNeedAtLeastZone
 	}
 	cms := make(client.MatchingLabels)
-	cms[nuwaRoomFlag] = c.Room
+	cms[nuwav1.NuwaZoneFlag] = c.Zone
 
-	if c.Cabinet != "" {
-		cms[nuwaCabinetFlag] = c.Cabinet
+	if c.Rack != "" {
+		cms[nuwav1.NuwaRackFlag] = c.Rack
 	}
 
 	return cms, nil
@@ -115,20 +109,20 @@ func coordinateMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) 
 func hostMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) {
 	cms := make(client.MatchingLabels)
 	if c.Host != "" {
-		cms[nuwaHostFlag] = c.Host
+		cms[nuwav1.NuwaHostFlag] = c.Host
 	}
 	return cms, nil
 }
 
 func coordinateName(c *nuwav1.Coordinate) (string, error) {
 	res := ""
-	if c.Room == "" {
-		return "", ErrNeedAtLeastRoom
+	if c.Zone == "" {
+		return "", ErrNeedAtLeastZone
 	}
-	res += c.Room
+	res += c.Zone
 	res += "-"
-	if c.Cabinet != "" {
-		res += c.Cabinet
+	if c.Rack != "" {
+		res += c.Rack
 	} else {
 		res += "Non"
 	}
@@ -139,24 +133,24 @@ func organizationNodeAffinity(c *nuwav1.Coordinate, nodeList []string) *corev1.N
 	nodeSelectorRequirements := make([]corev1.NodeSelectorRequirement, 0)
 	nodeSelectorRequirements = append(nodeSelectorRequirements,
 		corev1.NodeSelectorRequirement{
-			Key:      nuwaRoomFlag,
+			Key:      nuwav1.NuwaZoneFlag,
 			Operator: corev1.NodeSelectorOpIn,
-			Values:   []string{c.Room},
+			Values:   []string{c.Zone},
 		},
 	)
-	if c.Cabinet != "" {
+	if c.Rack != "" {
 		nodeSelectorRequirements = append(nodeSelectorRequirements,
 			corev1.NodeSelectorRequirement{
-				Key:      nuwaCabinetFlag,
+				Key:      nuwav1.NuwaRackFlag,
 				Operator: corev1.NodeSelectorOpIn,
-				Values:   []string{c.Cabinet},
+				Values:   []string{c.Rack},
 			},
 		)
 	}
 	if c.Host != "" {
 		nodeSelectorRequirements = append(nodeSelectorRequirements,
 			corev1.NodeSelectorRequirement{
-				Key:      nuwaHostFlag,
+				Key:      nuwav1.NuwaHostFlag,
 				Operator: corev1.NodeSelectorOpIn,
 				Values:   nodeList,
 			},
@@ -169,9 +163,9 @@ func organizationNodeAffinity(c *nuwav1.Coordinate, nodeList []string) *corev1.N
 				corev1.NodeSelectorTerm{
 					MatchExpressions: []corev1.NodeSelectorRequirement{
 						corev1.NodeSelectorRequirement{
-							Key:      nuwaRoomFlag,
+							Key:      nuwav1.NuwaZoneFlag,
 							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{c.Room},
+							Values:   []string{c.Zone},
 						}}}}},
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 			corev1.PreferredSchedulingTerm{Weight: 100,

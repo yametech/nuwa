@@ -14,7 +14,7 @@ spec:
         app: mysql
       # add nuwa label nodes
       annotations:
-        coordinates: '[{"room":"A","cabinet":"S-02","host":"node3","replicas":1},{"room":"B","cabinet":"W-01","host":"node4","replicas":1},{"room":"B","cabinet":"S-02","host":"node5","replicas":1}]'
+        coordinates: '[{"zone":"A","rack":"W-01","host":"node2","replicas":1},{"zone":"A","rack":"S-02","host":"node3","replicas":1},{"zone":"B","rack":"W-01","host":"node4","replicas":1},{"zone":"B","rack":"S-02","host":"node5","replicas":1}]'
     spec:
       # add readinessGates
       readinessGates:

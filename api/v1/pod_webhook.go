@@ -166,8 +166,8 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 			for _, matchingContainer := range matchingIPods[0].Spec.PreContainers {
 				//if the pod name same, add random str
 				if podCopyContainer.Name == matchingContainer.Name {
-					uid,_ := random()
-					matchingContainer.Name = matchingContainer.Name +"-"+ uid
+					uid, _ := random()
+					matchingContainer.Name = matchingContainer.Name + "-" + uid
 				}
 				pods = append(pods, matchingContainer)
 			}
@@ -180,8 +180,8 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 			for _, matchingContainer := range matchingIPods[0].Spec.PostContainers {
 				//if the pod name same, add random str
 				if podCopyContainer.Name == matchingContainer.Name {
-					uid,_ := random()
-					matchingContainer.Name = matchingContainer.Name +"-"+ uid
+					uid, _ := random()
+					matchingContainer.Name = matchingContainer.Name + "-" + uid
 				}
 				pods = append(pods, matchingContainer)
 			}
@@ -195,8 +195,8 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 			for _, matchingContainer := range matchingIPods[0].Spec.PreContainers {
 				//if the pod name same, add random str
 				if podCopyContainer.Name == matchingContainer.Name {
-					uid,_ := random()
-					matchingContainer.Name = matchingContainer.Name +"-"+ uid
+					uid, _ := random()
+					matchingContainer.Name = matchingContainer.Name + "-" + uid
 				}
 				podPres = append(podPres, matchingContainer)
 			}
@@ -207,8 +207,8 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 			for _, matchingContainer := range matchingIPods[0].Spec.PostContainers {
 				//if the pod name same, add random str
 				if podCopyContainer.Name == matchingContainer.Name {
-					uid,_ := random()
-					matchingContainer.Name = matchingContainer.Name +"-"+ uid
+					uid, _ := random()
+					matchingContainer.Name = matchingContainer.Name + "-" + uid
 				}
 				podAfters = append(podAfters, matchingContainer)
 			}

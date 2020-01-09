@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: sample
 spec:
-  replicas: 4
+  replicas: 1
   serviceName: fake-service
   selector:
     matchLabels:
@@ -11,10 +11,11 @@ spec:
   template:
     metadata:
       annotations:
-        coordinates: '[{"room":"A","cabinet":"W-01","host":"node2","replicas":1},{"room":"A","cabinet":"S-02","host":"node3","replicas":2},{"room":"B","cabinet":"W-01","host":"node4","replicas":1},{"room":"B","cabinet":"S-02","host":"node5","replicas":1}]'
+        coordinates: '[{"zone":"A","rack":"S-02","host":"node3","replicas":1},{"zone":"A","rack":"W-01","host":"node2","replicas":1},{"zone":"B","rack":"W-01","host":"node4","replicas":1},{"zone":"B","rack":"S-02","host":"node5","replicas":1}]'
       labels:
         app: sample
     spec:
+      terminationGracePeriodSeconds: 2
       readinessGates:
         - conditionType: InPlaceUpdateReady
       containers:

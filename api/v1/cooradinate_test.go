@@ -7,14 +7,14 @@ import (
 
 func TestCoordinate_Equal(t *testing.T) {
 	c1 := Coordinate{
-		Room:     "R-A",
-		Cabinet:  "C-B",
+		Zone:     "R-A",
+		Rack:     "C-B",
 		Host:     "H-1",
 		Replicas: 0,
 	}
 	c2 := Coordinate{
-		Room:     "R-A",
-		Cabinet:  "C-B",
+		Zone:     "R-A",
+		Rack:     "C-B",
 		Host:     "H-1",
 		Replicas: 2,
 	}
@@ -26,14 +26,14 @@ func TestCoordinate_Equal(t *testing.T) {
 func TestDifference(t *testing.T) {
 	cs1 := Coordinates{
 		Coordinate{
-			Room:     "R-A",
-			Cabinet:  "C-B",
+			Zone:     "R-A",
+			Rack:     "C-B",
 			Host:     "H-1",
 			Replicas: 0,
 		},
 		Coordinate{
-			Room:     "R-A",
-			Cabinet:  "C-B",
+			Zone:     "R-A",
+			Rack:     "C-B",
 			Host:     "H-2",
 			Replicas: 2,
 		},
@@ -41,28 +41,28 @@ func TestDifference(t *testing.T) {
 
 	cs2 := Coordinates{
 		Coordinate{
-			Room:     "R-A",
-			Cabinet:  "C-B",
+			Zone:     "R-A",
+			Rack:     "C-B",
 			Host:     "H-1",
 			Replicas: 0,
 		},
 		Coordinate{
-			Room:     "R-C",
-			Cabinet:  "C-B",
+			Zone:     "R-C",
+			Rack:     "C-B",
 			Host:     "H-1",
 			Replicas: 2,
 		},
 	}
 	expectCs := Coordinates{
 		Coordinate{
-			Room:     "R-A",
-			Cabinet:  "C-B",
+			Zone:     "R-A",
+			Rack:     "C-B",
 			Host:     "H-2",
 			Replicas: 2,
 		},
 		Coordinate{
-			Room:     "R-C",
-			Cabinet:  "C-B",
+			Zone:     "R-C",
+			Rack:     "C-B",
 			Host:     "H-1",
 			Replicas: 2,
 		},

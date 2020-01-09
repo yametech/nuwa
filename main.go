@@ -95,30 +95,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	//if err = (&controllers.WaterReconciler{
-	//	Client: mgr.GetClient(),
-	//	Log:    ctrl.Log.WithName("controllers").WithName("Water"),
-	//	Scheme: mgr.GetScheme(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Water")
-	//	os.Exit(1)
-	//}
-	//if err = (&nuwav1.Water{}).SetupWebhookWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create webhook", "webhook", "Water")
-	//	os.Exit(1)
-	//}
-	//if err = (&controllers.StoneReconciler{
-	//	Client: mgr.GetClient(),
-	//	Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
-	//	Scheme: mgr.GetScheme(),
-	//}).SetupWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create controller", "controller", "Stone")
-	//	os.Exit(1)
-	//}
-	//if err = (&nuwav1.Stone{}).SetupWebhookWithManager(mgr); err != nil {
-	//	setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
-	//	os.Exit(1)
-	//}
+	if err = (&controllers.WaterReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Water"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Water")
+		os.Exit(1)
+	}
+	if err = (&nuwav1.Water{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Water")
+		os.Exit(1)
+	}
+	if err = (&controllers.StoneReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Stone")
+		os.Exit(1)
+	}
+	if err = (&nuwav1.Stone{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.InjectorReconciler{
 		Client: mgr.GetClient(),

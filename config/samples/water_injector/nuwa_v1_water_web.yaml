@@ -22,19 +22,19 @@ spec:
         targetPort: 80
     type: NodePort
   coordinates:
-    - room: A
-      cabinet: W-01
+    - zone: A
+      rack: W-01
       host: node2
       replicas: 2
-    - room: A
-      cabinet: S-02
+    - zone: A
+      rack: S-02
       host: node3
       replicas: 0
-    - room: B
-      cabinet: W-01
+    - zone: B
+      rack: W-01
       host: node4
       replicas: 0
-    - room: B
-      cabinet: S-02
+    - zone: B
+      rack: S-02
       host: node5
       replicas: 0

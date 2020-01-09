@@ -20,17 +20,23 @@ package v1
 // example
 // coordinate:
 //	-room: ROOM-01   / 机房名
-//  -cabinet: CABINET-A1 /机柜名
+//  -cabinet: RACK-A1 /机柜名
 //  -host: HOST-DELL-01 /主机名
 //  -replicas: 2   /将发布多少个副本
+
+const (
+	NuwaZoneFlag = "nuwa.io/zone"
+	NuwaRackFlag = "nuwa.io/rack"
+	NuwaHostFlag = "nuwa.io/host"
+)
 
 // +kubebuilder:object:root=false
 // +k8s:deepcopy-gen=false
 type Coordinate struct {
 	// +optional
-	Room string `json:"room,omitempty"`
+	Zone string `json:"zone,omitempty"`
 	// +optional
-	Cabinet string `json:"cabinet,omitempty"`
+	Rack string `json:"rack,omitempty"`
 	// +optional
 	Host string `json:"host,omitempty"`
 	// If not specified,default value 0 then the average distribution is sorted according to the above three fields
@@ -39,9 +45,9 @@ type Coordinate struct {
 }
 
 func (c Coordinate) Equal(c1 Coordinate) bool {
-	if c.Room != c1.Room {
+	if c.Zone != c1.Zone {
 		return false
-	} else if c.Cabinet != c1.Cabinet {
+	} else if c.Rack != c1.Rack {
 		return false
 	} else if c.Host != c1.Host {
 		return false
