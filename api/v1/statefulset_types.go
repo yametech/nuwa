@@ -228,9 +228,13 @@ const (
 	FailedUpdatePod apps.StatefulSetConditionType = "FailedUpdatePod"
 )
 
+
+/*
+// +k8s:openapi-gen=true
+*/
+
 // +kubebuilder:object:root=true
 // StatefulSet is the Schema for the statefulsets API
-// +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.labelSelector
 // +kubebuilder:resource:shortName=nuwasts

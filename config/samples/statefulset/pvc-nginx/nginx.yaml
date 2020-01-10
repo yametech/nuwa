@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: statefulset-sample
 spec:
-  replicas: 1
+  replicas: 5
   serviceName: fake-service
   selector:
     matchLabels:
@@ -13,8 +13,18 @@ spec:
       labels:
         app: sample
       annotations:
-        coordinates: '[{"zone":"A","rack":"W-01","host":"node2","replicas":1},{"zone":"A","rack":"S-02","host":"node3","replicas":1},{"zone":"B","rack":"W-01","host":"node4","replicas":1},{"zone":"B","rack":"S-02","host":"node5","replicas":1}]'
+        coordinates: '[{"zone":"A","rack":"S-02","host":"node3","replicas":1},{"zone":"A","rack":"W-01","host":"node2","replicas":3},{"zone":"B","rack":"W-01","host":"node4","replicas":1},{"zone":"B","rack":"S-02","host":"node5","replicas":1}]'
     spec:
+      tolerations:
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+      terminationGracePeriodSeconds: 10
       readinessGates:
         - conditionType: InPlaceUpdateReady
       containers:
@@ -39,5 +49,5 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       podUpdatePolicy: InPlaceIfPossible
-      maxUnavailable: 2
-      partition: 1
+      maxUnavailable: 1
+      partition: 0

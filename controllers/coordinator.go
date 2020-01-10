@@ -147,7 +147,7 @@ func organizationNodeAffinity(c *nuwav1.Coordinate, nodeList []string) *corev1.N
 			},
 		)
 	}
-	if c.Host != "" {
+	if c.Host != "" && len(nodeList) > 0 {
 		nodeSelectorRequirements = append(nodeSelectorRequirements,
 			corev1.NodeSelectorRequirement{
 				Key:      nuwav1.NuwaHostFlag,

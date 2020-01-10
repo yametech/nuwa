@@ -34,7 +34,6 @@ import (
 	"k8s.io/kubernetes/pkg/controller/history"
 	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
 	"strconv"
 )
 
@@ -259,7 +258,8 @@ func coordinatorPod(client client.Client, set *nuwav1.StatefulSet, pod *v1.Pod, 
 		}
 		var crd nuwav1.Coordinate
 		if len(coordinates)-1 < ordinal {
-			sort.Sort(&coordinates)
+			// Abandoned sort by replacs size , Matrix publishing by default
+			// sort.Sort(&coordinates)
 			ordinal -= len(coordinates)
 		}
 

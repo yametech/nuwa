@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: sample
 spec:
-  replicas: 1
+  replicas: 3
   serviceName: fake-service
   selector:
     matchLabels:
@@ -15,6 +15,15 @@ spec:
       labels:
         app: sample
     spec:
+      tolerations:
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
       terminationGracePeriodSeconds: 2
       readinessGates:
         - conditionType: InPlaceUpdateReady
