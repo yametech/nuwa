@@ -72,9 +72,9 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.Usage = usage
-	flag.Set("logtostderr", "true")
-	flag.Set("stderrthreshold", "WARNING")
-	flag.Set("v", "6")
+	_ = flag.Set("logtostderr", "true")
+	_ = flag.Set("stderrthreshold", "WARNING")
+	_ = flag.Set("v", "6")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {

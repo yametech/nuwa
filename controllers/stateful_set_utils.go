@@ -324,7 +324,7 @@ func getPatch(set *nuwav1.StatefulSet) ([]byte, error) {
 		return nil, err
 	}
 	var raw map[string]interface{}
-	json.Unmarshal([]byte(str), &raw)
+	_ = json.Unmarshal([]byte(str), &raw)
 	objCopy := make(map[string]interface{})
 	specCopy := make(map[string]interface{})
 	spec := raw["spec"].(map[string]interface{})
