@@ -36,7 +36,11 @@ spec:
         spec:
           description: InjectorSpec defines the desired state of Injector
           properties:
-            afterContainers:
+            name:
+              type: string
+            namespace:
+              type: string
+            postContainers:
               items:
                 description: A single application container that you want to run within
                   a pod.
@@ -1070,10 +1074,6 @@ spec:
                 - name
                 type: object
               type: array
-            name:
-              type: string
-            namespace:
-              type: string
             preContainers:
               items:
                 description: A single application container that you want to run within

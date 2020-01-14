@@ -228,7 +228,6 @@ const (
 	FailedUpdatePod apps.StatefulSetConditionType = "FailedUpdatePod"
 )
 
-
 /*
 // +k8s:openapi-gen=true
 */

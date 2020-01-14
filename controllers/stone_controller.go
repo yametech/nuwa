@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +41,59 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logf := r.Log.WithValues("stone", req.NamespacedName)
 	_, _ = ctx, logf
+
+	ste := &nuwav1.Stone{}
+	if err := r.Client.Get(ctx, req.NamespacedName, ste); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if err := r.cleanOldStatefulSet(ctx, ste); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	statefulSet, err := r.getStatefulSet(ctx, ste)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.updateStatefulSet(ctx, statefulSet); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.createService(ctx, ste); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.updateStone(ctx, ste); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func (r *StoneReconciler) getStatefulSet(ctx context.Context, ste *nuwav1.Stone) (*nuwav1.StatefulSet, error) {
+	return nil, nil
+}
+
+func (r *StoneReconciler) createService(ctx context.Context, ste *nuwav1.Stone) error {
+
+	return nil
+}
+
+func (r *StoneReconciler) updateStatefulSet(ctx context.Context, sts *nuwav1.StatefulSet) error {
+
+	return nil
+}
+
+func (r *StoneReconciler) cleanOldStatefulSet(ctx context.Context, ste *nuwav1.Stone) error {
+	return nil
+}
+
+func (r *StoneReconciler) updateStone(ctx context.Context, ste *nuwav1.Stone) error {
+	return nil
 }
 
 func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,21 +28,47 @@ import (
 type StoneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	StatefulSetSpec appsv1.StatefulSetSpec `json:"stateful_set_spec"`
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+	// Template describes the pods that will be created.
+	Template corev1.PodTemplateSpec `json:"template"`
+	// Strategy
+	// @Alpha : Only one node that meets expectations is selected to publish 1 application
+	// @Beta  : All node that meets expectations is selected to publish each node 1 application
+	// @Release : The number of copies(Replicas) based on beta release more than nodes will be published evenly in the nodes that conform to the specification
+	// +optional
+	// +patchStrategy=retainKeys
+	// +patchMergeKey=type
+	Strategy StrategyType `json:"strategy"`
+	// Identify the deployment status expected by the current resource
+	// Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
+	// +optional
+	Coordinates Coordinates `json:"coordinates,omitempty"`
+	// Identify the deployment service expected by the current resource
+	// +optional
+	Service corev1.ServiceSpec `json:"service,omitempty"`
 }
 
 // StoneStatus defines the observed state of Stone
 type StoneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	StatefulSetStatus appsv1.StatefulSetStatus `json:"stateful_set_status"`
+	DesiredReplicas    int32 `json:"desired_replicas"`
+	AlreadyReplicas    int32 `json:"already_replicas"`
+	DesiredStatefulSet int32 `json:"desired_stateful_set"`
+	AlreadyStatefulSet int32 `json:"already_stateful_set"`
 }
 
 // +kubebuilder:object:root=true
-// Stone is the Schema for the stones API
-// +k8s:openapi-gen=true
+// Water is the Schema for the waters API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:shortName=st
+// +kubebuilder:resource:shortName=nuwaste
+// +kubebuilder:subresource:scale:specpath=".spec.replicas",statuspath=".status.replicas"
+// +kubebuilder:printcolumn:name="DESIRED-REPLICAS",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="ALREADY-REPLICAS",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="DESIRED-STATEFUL-SET",type="integer",JSONPath=".status.desired_stateful_set",description="The desired number of desired_stateful_set."
+// +kubebuilder:printcolumn:name="ALREADY-STATEFUL-SET",type="integer",JSONPath=".status.already_deployment",description="The already replicas number of desired_stateful_set."
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Stone struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

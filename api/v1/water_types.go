@@ -24,14 +24,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type StrategyType string
-
-const (
-	Alpha   StrategyType = "Alpha"
-	Beta    StrategyType = "Beta"
-	Release StrategyType = "Release"
-)
-
 // WaterSpec defines the desired state of Water
 type WaterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -67,10 +59,10 @@ type WaterStatus struct {
 
 /*
 	kubebuilder:subresource:scale:specpath=.spec.copies,statuspath=.status.current,selectorpath=.spec.selector
+// +k8s:openapi-gen=true
 */
 
 // +kubebuilder:object:root=true
-// +k8s:openapi-gen=true
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nuwawts
