@@ -18,7 +18,7 @@ package v1
 // Coordinate defines the desired identity pod of node
 // example
 // coordinate:
-//	-room: ZONE-01   / 机房名
+//	-room: ZONE-01   / 机房区域
 //  -cabinet: RACK-A1 /机柜名
 //  -host: HOST-DELL-01 /主机名
 //  -replicas: 2   /将发布多少个副本

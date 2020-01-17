@@ -250,37 +250,37 @@ func coordinatorPod(client client.Client, set *nuwav1.StatefulSet, pod *v1.Pod, 
 	if set.Spec.Template.Annotations == nil {
 		return pod
 	}
-	if coords, ok := set.Spec.Template.Annotations["coordinates"]; ok {
+	if cords, ok := set.Spec.Template.Annotations["coordinates"]; ok {
 		coordinates := make(nuwav1.Coordinates, 0)
-		if err := json.Unmarshal([]byte(coords), &coordinates); err != nil {
-			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s unmarshal coordiantes %s error %s", set.Namespace, set.Name, coords, err))
+		if err := json.Unmarshal([]byte(cords), &coordinates); err != nil {
+			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s unmarshal coordiantes %s error %s", set.Namespace, set.Name, cords, err))
 			return pod
 		}
-		var crd nuwav1.Coordinate
+		var cod nuwav1.Coordinate
 		if len(coordinates)-1 < ordinal {
 			// Abandoned sort by replacs size , Matrix publishing by default
 			// sort.Sort(&coordinates)
 			ordinal -= len(coordinates)
 		}
 
-		crd = coordinates[ordinal]
-		coorLabels, err := coordinateMatchLabels(&crd)
+		cod = coordinates[ordinal]
+		codLabels, err := coordinateMatchLabels(&cod)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate coordiante label error %s", set.Namespace, set.Name, err))
 			return pod
 		}
-		hostLabels, err := hostMatchLabels(&crd)
+		hostLabels, err := hostMatchLabels(&cod)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate host label error %s", set.Namespace, set.Name, err))
 			return pod
 		}
-		nodeList, err := findNodeWithLabels(client, coorLabels, hostLabels)
+		nodeList, err := findNodeWithLabels(client, codLabels, hostLabels)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s find node list error %s", set.Namespace, set.Name, err))
 			return pod
 		}
 
-		nodeAffinity := organizationNodeAffinity(&crd, nodeList)
+		nodeAffinity := organizationNodeAffinity(&cod, nodeList)
 		if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: nodeAffinity}
 		}

@@ -39,7 +39,7 @@ type WaterSpec struct {
 	// +patchMergeKey=type
 	Strategy StrategyType `json:"strategy"`
 	// Identify the deployment status expected by the current resource
-	// Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
+	// Identify node params ZONE-{N}_RACK-{N}_HOST-{N}
 	// +optional
 	Coordinates Coordinates `json:"coordinates,omitempty"`
 	// Identify the deployment service expected by the current resource
