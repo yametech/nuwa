@@ -62,9 +62,7 @@ func (c *Coordinates) Len() int { return len((*c)) }
 func (c *Coordinates) Less(i, j int) bool {
 	if c.Len() <= 1 {
 		return false
-	} else if (*c)[i].Replicas == 0 {
-		return false
-	} else if (*c)[i].Replicas >= (*c)[j].Replicas {
+	} else if (*c)[i].Zone >= (*c)[j].Zone {
 		return false
 	}
 	return true

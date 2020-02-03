@@ -1,0 +1,45 @@
+apiVersion: nuwa.nip.io/v1
+kind: Stone
+metadata:
+  name: stone-injector-sample
+spec:
+  strategy: Release
+  template:
+    metadata:
+      name: sample
+      labels:
+        app: water_injector-sample
+    spec:
+      containers:
+        - name: cn-0
+          image: nginx:latest
+          imagePullPolicy: IfNotPresent
+      tolerations:
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+  service:
+    ports:
+      - name: default-web-port
+        protocol: TCP
+        port: 80
+        targetPort: 80
+    type: NodePort
+  coordinates:
+    - zone: A
+      rack: W-01
+      host: node2
+    - zone: A
+      rack: S-02
+      host: node3
+    - zone: B
+      rack: W-01
+      host: node4
+    - zone: B
+      rack: S-02
+      host: node5
