@@ -22,7 +22,6 @@ import (
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
 )
 
 type CoordinateErr error
@@ -90,30 +89,6 @@ func makeLocalCoordinates(client client.Client, coordinates nuwav1.Coordinates) 
 	}
 
 	return
-}
-
-func makeGroupCoordinator(client client.Client, coordinates nuwav1.Coordinates) (map[int][]*coordinator, int, error) {
-	sort.Sort(&coordinates)
-	result := make(map[int][]*coordinator)
-	group := 0
-	curZone := ""
-	for i := range coordinates {
-		if curZone != coordinates[i].Zone {
-			group++
-		}
-		if _, ok := result[group]; !ok {
-			result[group] = make([]*coordinator, 0)
-		}
-		coordinator, err := newLocalCoordinate(i, client, coordinates[i])
-		if err != nil {
-			return nil, 0, err
-		}
-		result[group] = append(result[group], coordinator)
-
-		curZone = coordinates[i].Zone
-	}
-
-	return result, group, nil
 }
 
 func findNodeWithLabels(cli client.Client, hostLabels, crdsLabels client.MatchingLabels) (nodeList []string, err error) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2019 yametech.
+Copyright 2019 yametech Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sort"
 )
 
 // StoneReconciler reconciles a Stone object
@@ -35,6 +36,12 @@ type StoneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// stone named rule
+//
+// stone_name = "$user_define"
+// group_name = "$index"
+// stateful_name = $stone_name + $group_name
+
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=statefulsets/status,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=stones,verbs=get;list;watch;create;update;patch;delete
@@ -42,7 +49,6 @@ type StoneReconciler struct {
 func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logf := r.Log.WithValues("stone", req.NamespacedName)
-	_, _ = ctx, logf
 
 	ste := &nuwav1.Stone{}
 	if err := r.Client.Get(ctx, req.NamespacedName, ste); err != nil {
@@ -52,16 +58,7 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	if err := r.cleanOldStatefulSet(ctx, logf, ste); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	statefulSet, err := r.getStatefulSet(ctx, logf, ste)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.updateStatefulSet(ctx, logf, statefulSet); err != nil {
+	if err := r.syncStatefulSet(ctx, logf, ste); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -76,7 +73,22 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) (*nuwav1.StatefulSet, error) {
+func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone, statefulSetName string) (*nuwav1.StatefulSet, error) {
+	sts := &nuwav1.StatefulSet{}
+	key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
+	if err := r.Client.Get(ctx, key, sts); err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+		log.Info(
+			"statefulSet not found",
+			"namespace",
+			ste.Namespace,
+			"statefulSetName",
+			statefulSetName,
+		)
+	}
+
 	return nil, nil
 }
 
@@ -90,10 +102,7 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 	return nil
 }
 
-func (r *StoneReconciler) cleanOldStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
-	if ste.Annotations == nil {
-		return nil
-	}
+func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
 
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var tmpSteSpec nuwav1.StoneSpec
@@ -106,19 +115,23 @@ func (r *StoneReconciler) cleanOldStatefulSet(ctx context.Context, log logr.Logg
 		}
 
 		source := tmpSteSpec.Coordinates.DeepCopy()
-		sourceTop, sourceGroup, err := makeGroupCoordinator(r.Client, source)
-		if err != nil {
-			return err
-		}
-		_, _ = sourceTop, sourceGroup
-
 		target := ste.Spec.Coordinates.DeepCopy()
-		targetTop, targetGroup, err := makeGroupCoordinator(r.Client, target)
+		needDeleted := nuwav1.Difference(source, target)
+
+		needChanged, _, err := splitGroupCoordinates(needDeleted)
 		if err != nil {
 			return err
 		}
-		_, _ = targetTop, targetGroup
-		
+
+		for index, _ := range needChanged {
+			statefulSetName := statefulSetName(ste, index)
+			statefulSetSpec, err := r.getStatefulSet(ctx, log, ste, statefulSetName)
+			if err != nil {
+				return err
+			}
+			_ = statefulSetSpec
+		}
+
 		return nil
 	})
 }
@@ -132,4 +145,23 @@ func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&nuwav1.Stone{}).
 		Owns(&nuwav1.StatefulSet{}).
 		Complete(r)
+}
+
+func splitGroupCoordinates(coordinates nuwav1.Coordinates) (map[int]nuwav1.Coordinates, int, error) {
+	sort.Sort(&coordinates)
+	result := make(map[int]nuwav1.Coordinates)
+	group := 0
+	curZone := ""
+	for i := range coordinates {
+		if curZone != coordinates[i].Zone {
+			group++
+		}
+		if _, ok := result[group]; !ok {
+			result[group] = make(nuwav1.Coordinates, 0)
+		}
+		result[group] = append(result[group], coordinates[i])
+
+		curZone = coordinates[i].Zone
+	}
+	return result, group, nil
 }

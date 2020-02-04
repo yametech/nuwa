@@ -128,6 +128,18 @@ func ownerReference(obj metav1.Object, kindName string) []metav1.OwnerReference 
 	}
 }
 
-func deploymentName(coordinateName string, instance *nuwav1.Water) string {
-	return fmt.Sprintf("%s-%s", instance.Name, strings.ToLower(coordinateName))
+func deploymentName(coordinateName string, wts *nuwav1.Water) string {
+	return fmt.Sprintf(
+		"%s-%s",
+		wts.Name,
+		strings.ToLower(coordinateName),
+	)
+}
+
+func statefulSetName(ste *nuwav1.Stone, group int) string {
+	return fmt.Sprintf(
+		"%s-%d",
+		ste.Name,
+		group,
+	)
 }
