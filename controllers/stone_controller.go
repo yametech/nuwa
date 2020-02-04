@@ -87,9 +87,12 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, s
 			"statefulSetName",
 			statefulSetName,
 		)
+		// structure
+		sts.Namespace = ste.Namespace
+		sts.Name = statefulSetName
+		sts.Spec.Template = ste.Spec.Template
 	}
-
-	return nil, nil
+	return sts, nil
 }
 
 func (r *StoneReconciler) createService(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
