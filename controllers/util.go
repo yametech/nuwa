@@ -21,6 +21,7 @@ import (
 	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sort"
 	"strings"
 	"sync"
 
@@ -142,4 +143,44 @@ func statefulSetName(ste *nuwav1.Stone, group int) string {
 		ste.Name,
 		group,
 	)
+}
+
+func statefulSetGroupNumberOfStone(name string) string {
+	names := strings.Split(name, "-")
+	if len(names) > 1 {
+		return names[1]
+	}
+	return ""
+}
+
+func splitGroupCoordinates(coordinates nuwav1.Coordinates) (map[int]nuwav1.Coordinates, int, error) {
+	sort.Sort(&coordinates)
+	result := make(map[int]nuwav1.Coordinates)
+	group := 0
+	curZone := ""
+	for i := range coordinates {
+		if curZone != coordinates[i].Zone {
+			group++
+		}
+		if _, ok := result[group]; !ok {
+			result[group] = make(nuwav1.Coordinates, 0)
+		}
+		result[group] = append(result[group], coordinates[i])
+
+		curZone = coordinates[i].Zone
+	}
+	return result, group, nil
+}
+
+func numberOfNodeCount(coordinates nuwav1.Coordinates) (int, error) {
+	groupCoordiates, _, err := splitGroupCoordinates(coordinates)
+	if err != nil {
+		return 0, err
+	}
+
+	_ = groupCoordiates
+	//for groupKey, _ := range groupCoordiates {
+	//
+	//}
+	return 0, nil
 }
