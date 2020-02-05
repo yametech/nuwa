@@ -21,7 +21,9 @@ import (
 	"encoding/json"
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -73,26 +75,72 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone, statefulSetName string) (*nuwav1.StatefulSet, error) {
-	sts := &nuwav1.StatefulSet{}
-	key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
-	if err := r.Client.Get(ctx, key, sts); err != nil {
-		if !errors.IsNotFound(err) {
+func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, last nuwav1.Coordinates, ste *nuwav1.Stone) ([]*nuwav1.StatefulSet, error) {
+	var statefulSetGroup map[int]nuwav1.Coordinates
+	var numberOfGroup int
+	var err error
+
+	if last != nil {
+		srouce := ste.Spec.Coordinates.DeepCopy()
+		statefulSetGroup, numberOfGroup, err = splitGroupCoordinates(nuwav1.Difference(srouce, last))
+		if err != nil {
 			return nil, err
 		}
-		log.Info(
-			"statefulSet not found",
-			"namespace",
-			ste.Namespace,
-			"statefulSetName",
-			statefulSetName,
-		)
-		// structure
-		sts.Namespace = ste.Namespace
-		sts.Name = statefulSetName
-		sts.Spec.Template = ste.Spec.Template
 	}
-	return sts, nil
+
+	_ = statefulSetGroup
+	stsPointerSlice := make([]*nuwav1.StatefulSet, 0)
+
+	for i := 1; i <= numberOfGroup; i++ {
+		statefulSetName := statefulSetName(ste, i)
+		sts := &nuwav1.StatefulSet{}
+		key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
+		if err := r.Client.Get(ctx, key, sts); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, err
+			}
+			log.Info(
+				"statefulSet not found",
+				"namespace",
+				ste.Namespace,
+				"statefulSetName",
+				statefulSetName,
+			)
+
+			// default is the number of machines per group
+			var size int32
+			if ste.Spec.Strategy == nuwav1.Alpha {
+				size = 1
+			} else if ste.Spec.Strategy == nuwav1.Beta {
+				size = 1
+			} else if ste.Spec.Strategy == nuwav1.Release {
+				//
+			}
+			// structure new statefulset
+			labels := map[string]string{"app": statefulSetName}
+			selector := &metav1.LabelSelector{MatchLabels: labels}
+			sts = &nuwav1.StatefulSet{
+				TypeMeta: metav1.TypeMeta{APIVersion: "nuwa.nip.io/v1", Kind: "StatefulSet"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            statefulSetName,
+					Namespace:       ste.Namespace,
+					OwnerReferences: ownerReference(ste, "Stone"),
+				},
+
+				Spec: nuwav1.StatefulSetSpec{
+					Replicas: &size,
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{Labels: labels},
+						Spec:       ste.Spec.Template.Spec,
+					},
+					Selector: selector,
+				},
+			}
+		}
+		stsPointerSlice = append(stsPointerSlice, sts)
+	}
+
+	return stsPointerSlice, nil
 }
 
 func (r *StoneReconciler) createService(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
@@ -106,33 +154,26 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 }
 
 func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
-
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var last nuwav1.Coordinates
 		var tmpSteSpec nuwav1.StoneSpec
 		str, ok := ste.Annotations["spec"]
-		if !ok {
-			return nil
-		}
-		if err := json.Unmarshal([]byte(str), &tmpSteSpec); err != nil {
-			return err
+		if ok {
+			if err := json.Unmarshal([]byte(str), &tmpSteSpec); err != nil {
+				return err
+			}
+			last = tmpSteSpec.Coordinates.DeepCopy()
 		}
 
-		source := tmpSteSpec.Coordinates.DeepCopy()
-		target := ste.Spec.Coordinates.DeepCopy()
-		needDeleted := nuwav1.Difference(source, target)
-
-		needChanged, _, err := splitGroupCoordinates(needDeleted)
+		statefulSets, err := r.getStatefulSet(ctx, log, last, ste)
 		if err != nil {
 			return err
 		}
 
-		for index, _ := range needChanged {
-			statefulSetName := statefulSetName(ste, index)
-			statefulSetSpec, err := r.getStatefulSet(ctx, log, ste, statefulSetName)
-			if err != nil {
+		for i := range statefulSets {
+			if err := r.Client.Update(ctx, statefulSets[i]); err != nil {
 				return err
 			}
-			_ = statefulSetSpec
 		}
 
 		return nil
@@ -150,21 +191,3 @@ func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func splitGroupCoordinates(coordinates nuwav1.Coordinates) (map[int]nuwav1.Coordinates, int, error) {
-	sort.Sort(&coordinates)
-	result := make(map[int]nuwav1.Coordinates)
-	group := 0
-	curZone := ""
-	for i := range coordinates {
-		if curZone != coordinates[i].Zone {
-			group++
-		}
-		if _, ok := result[group]; !ok {
-			result[group] = make(nuwav1.Coordinates, 0)
-		}
-		result[group] = append(result[group], coordinates[i])
-
-		curZone = coordinates[i].Zone
-	}
-	return result, group, nil
-}
