@@ -26,9 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//_ "sort"
 )
 
 // StoneReconciler reconciles a Stone object
@@ -64,10 +66,6 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, err
 	}
 
-	if err := r.createService(ctx, logf, ste); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	if err := r.updateStone(ctx, logf, ste); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -88,10 +86,11 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 		}
 	}
 
-	_ = statefulSetGroup
+	_ = numberOfGroup
+
 	stsPointerSlice := make([]*nuwav1.StatefulSet, 0)
 
-	for i := 1; i <= numberOfGroup; i++ {
+	for i, _ := range statefulSetGroup {
 		statefulSetName := statefulSetName(ste, i)
 		sts := &nuwav1.StatefulSet{}
 		key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
@@ -119,6 +118,7 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 			// structure new statefulset
 			labels := map[string]string{"app": statefulSetName}
 			selector := &metav1.LabelSelector{MatchLabels: labels}
+			fakeSeriveName := "fake"
 			sts = &nuwav1.StatefulSet{
 				TypeMeta: metav1.TypeMeta{APIVersion: "nuwa.nip.io/v1", Kind: "StatefulSet"},
 				ObjectMeta: metav1.ObjectMeta{
@@ -127,8 +127,10 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 					OwnerReferences: ownerReference(ste, "Stone"),
 				},
 
+
 				Spec: nuwav1.StatefulSetSpec{
-					Replicas: &size,
+					Replicas:    &size,
+					ServiceName: fakeSeriveName + "-" + statefulSetName,
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{Labels: labels},
 						Spec:       ste.Spec.Template.Spec,
@@ -137,20 +139,114 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 				},
 			}
 		}
+
 		stsPointerSlice = append(stsPointerSlice, sts)
 	}
 
 	return stsPointerSlice, nil
 }
 
-func (r *StoneReconciler) createService(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
+func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, ste *nuwav1.Stone, sts *nuwav1.StatefulSet) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		tmp := &corev1.Service{}
+		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
+		err := r.Client.Get(ctx, key, tmp)
 
-	return nil
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		} else {
+			// Create service
+			serviceSpec := ste.Spec.Service.DeepCopy()
+			serviceSpec.Selector = map[string]string{"app": sts.Name}
+
+			service := &corev1.Service{
+				TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            sts.Name,
+					Namespace:       sts.Namespace,
+					OwnerReferences: ownerReference(ste, "Stone"),
+				},
+				Spec: *serviceSpec,
+			}
+			if err = r.Client.Create(ctx, service); err != nil {
+				return err
+			}
+
+			log.Info("Create statefulSet service", "service", sts.Name)
+		}
+
+		return nil
+	})
 }
 
-func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger, sts *nuwav1.StatefulSet) error {
+func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger, sts *nuwav1.StatefulSet, ste *nuwav1.Stone) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		tmp := &nuwav1.StatefulSet{}
+		key := client.ObjectKey{Namespace: sts.Namespace, Name: sts.Name}
 
-	return nil
+		err := r.Client.Get(ctx, key, tmp)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Info(
+					"updateStatefulSet not found, create it",
+					"namespace",
+					sts.Namespace,
+					"statefulset",
+					sts.Name,
+				)
+				if err := r.Client.Create(ctx, sts); err != nil {
+					log.Info(
+						"updateStatefulSet create",
+						"namespace",
+						sts.Namespace,
+						"statefulset",
+						sts.Name,
+						"error",
+						err.Error(),
+					)
+					return err
+				}
+
+				if err := controllerutil.SetControllerReference(ste, sts, r.Scheme); err != nil {
+					return err
+				}
+
+				return nil
+
+			} else {
+				log.Info(
+					"updateStatefulSet unknow error",
+					"namespace",
+					sts.Namespace,
+					"statefulset",
+					sts.Name,
+					"error",
+					err.Error(),
+				)
+				return err
+			}
+
+		}
+
+		if *tmp.Spec.Replicas != *sts.Spec.Replicas ||
+			reflect.DeepEqual(sts.Spec.Template.Spec, tmp.Spec.Template.Spec) {
+			err := r.Client.Update(ctx, sts)
+			if err != nil {
+				log.Info(
+					"updateStatefulSet update error",
+					"namespace",
+					sts.Namespace,
+					"statefulset",
+					sts.Name,
+					"error",
+					err.Error(),
+				)
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
@@ -171,7 +267,11 @@ func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, 
 		}
 
 		for i := range statefulSets {
-			if err := r.Client.Update(ctx, statefulSets[i]); err != nil {
+			sts := statefulSets[i]
+			if err := r.updateStatefulSet(ctx, log, sts, ste); err != nil {
+				return err
+			}
+			if err := r.updateService(ctx, log, ste, sts); err != nil {
 				return err
 			}
 		}
@@ -181,7 +281,22 @@ func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, 
 }
 
 func (r *StoneReconciler) updateStone(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
-	return nil
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		bytes, err := json.Marshal(ste.Spec)
+		if err != nil {
+			return err
+		}
+		if ste.Annotations == nil {
+			ste.Annotations = map[string]string{"spec": string(bytes)}
+		}
+		ste.Annotations["spec"] = string(bytes)
+		err = r.Client.Update(ctx, ste)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -190,4 +305,3 @@ func (r *StoneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&nuwav1.StatefulSet{}).
 		Complete(r)
 }
-
