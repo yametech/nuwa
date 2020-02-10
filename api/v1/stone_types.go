@@ -43,10 +43,17 @@ type StoneSpec struct {
 	// Identify the deployment status expected by the current resource
 	// Identify node params ZONE-{N}_RACK-{N}_HOST-{N}
 	// +optional
-	Coordinates Coordinates `json:"coordinates,omitempty"`
+	Coordinates []CoordinatesGroup `json:"coordinates,omitempty"`
 	// Identify the deployment service expected by the current resource
 	// +optional
 	Service corev1.ServiceSpec `json:"service,omitempty"`
+}
+
+// CoordinatesGroup ..
+type CoordinatesGroup struct {
+	Group    string      `json:"group,omitempty"`
+	Zoneset  Coordinates `json:"zoneset,omitempty"`
+	Replicas *int32      `json:"replicas,omitempty"`
 }
 
 // StoneStatus defines the observed state of Stone

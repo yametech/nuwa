@@ -67,20 +67,32 @@ spec:
           properties:
             coordinates:
               description: Identify the deployment status expected by the current
-                resource Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
+                resource Identify node params ZONE-{N}_RACK-{N}_HOST-{N}
               items:
+                description: CoordinatesGroup ..
                 properties:
-                  host:
-                    type: string
-                  rack:
+                  group:
                     type: string
                   replicas:
-                    description: If not specified,default value 0 then the average
-                      distribution is sorted according to the above three fields
                     format: int32
                     type: integer
-                  zone:
-                    type: string
+                  zoneset:
+                    description: Coordinates defines the desired identity pod of nodes
+                    items:
+                      properties:
+                        host:
+                          type: string
+                        rack:
+                          type: string
+                        replicas:
+                          description: If not specified,default value 0 then the average
+                            distribution is sorted according to the above three fields
+                          format: int32
+                          type: integer
+                        zone:
+                          type: string
+                      type: object
+                    type: array
                 type: object
               type: array
             service:

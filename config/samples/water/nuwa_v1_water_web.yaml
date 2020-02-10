@@ -8,7 +8,7 @@ spec:
     metadata:
       name: sample
       labels:
-        app: water_injector-sample-2
+        app: water-injector-sample-2
     spec:
       containers:
         - name: cn-0

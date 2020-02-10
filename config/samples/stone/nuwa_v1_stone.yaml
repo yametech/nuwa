@@ -1,14 +1,14 @@
 apiVersion: nuwa.nip.io/v1
 kind: Stone
 metadata:
-  name: stone-injector-sample
+  name: stone-example
 spec:
   strategy: Release
   template:
     metadata:
       name: sample
       labels:
-        app: water_injector-sample
+        app: stone-example
     spec:
       containers:
         - name: cn-0
@@ -31,15 +31,21 @@ spec:
         targetPort: 80
     type: NodePort
   coordinates:
-    - zone: A
-      rack: W-01
-      host: node2
-    - zone: A
-      rack: S-02
-      host: node3
-    - zone: B
-      rack: W-01
-      host: node4
-    - zone: B
-      rack: S-02
-      host: node5
+    - group: A
+      replicas: 3
+      zoneset:
+      - zone: A
+        rack: W-01
+        host: node2
+      - zone: A
+        rack: S-02
+        host: node3
+    - group: B
+      replicas: 2
+      zoneset:
+      - zone: B
+        rack: W-01
+        host: node4
+      - zone: B
+        rack: S-02
+        host: node5

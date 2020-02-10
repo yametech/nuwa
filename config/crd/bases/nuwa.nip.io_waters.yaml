@@ -67,7 +67,7 @@ spec:
           properties:
             coordinates:
               description: Identify the deployment status expected by the current
-                resource Identify node params ROOM-{N}_CABINET-{N}_HOST-{N}
+                resource Identify node params ZONE-{N}_RACK-{N}_HOST-{N}
               items:
                 properties:
                   host:
