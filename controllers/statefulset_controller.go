@@ -97,7 +97,12 @@ func (ssc *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 	err := ssc.Client.Get(ctx, objKey, set)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("unable to retrieve StatefulSet %v from store: %v", key, err))
+			utilruntime.HandleError(fmt.Errorf(
+				"unable to retrieve StatefulSet %v from store: %v or not match statefulset named rule: %s",
+				key,
+				err,
+				statefulPodRegex.String(),
+			))
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err

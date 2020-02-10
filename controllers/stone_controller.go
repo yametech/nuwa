@@ -19,14 +19,17 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
+	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/retry"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -73,25 +76,11 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, last nuwav1.Coordinates, ste *nuwav1.Stone) ([]*nuwav1.StatefulSet, error) {
-	var statefulSetGroup map[int]nuwav1.Coordinates
-	var numberOfGroup int
-	var err error
-
-	if last != nil {
-		srouce := ste.Spec.Coordinates.DeepCopy()
-		statefulSetGroup, numberOfGroup, err = splitGroupCoordinates(nuwav1.Difference(srouce, last))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	_ = numberOfGroup
-
+func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, cgs []nuwav1.CoordinatesGroup, ste *nuwav1.Stone) ([]*nuwav1.StatefulSet, error) {
 	stsPointerSlice := make([]*nuwav1.StatefulSet, 0)
 
-	for i, _ := range statefulSetGroup {
-		statefulSetName := statefulSetName(ste, i)
+	for i := range cgs {
+		statefulSetName := statefulSetName(ste, cgs[i].Group, i)
 		sts := &nuwav1.StatefulSet{}
 		key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
 		if err := r.Client.Get(ctx, key, sts); err != nil {
@@ -111,14 +100,17 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 			if ste.Spec.Strategy == nuwav1.Alpha {
 				size = 1
 			} else if ste.Spec.Strategy == nuwav1.Beta {
-				size = 1
+				size = int32(cgs[i].Zoneset.Len())
 			} else if ste.Spec.Strategy == nuwav1.Release {
-				//
+				size = *cgs[i].Replicas
 			}
 			// structure new statefulset
 			labels := map[string]string{"app": statefulSetName}
 			selector := &metav1.LabelSelector{MatchLabels: labels}
 			fakeSeriveName := "fake"
+			maxUnavailable := intstr.FromInt(1)
+			partition := int32(1)
+			zonesetAnnotations, _ := json.Marshal(cgs[i].Zoneset)
 			sts = &nuwav1.StatefulSet{
 				TypeMeta: metav1.TypeMeta{APIVersion: "nuwa.nip.io/v1", Kind: "StatefulSet"},
 				ObjectMeta: metav1.ObjectMeta{
@@ -126,19 +118,31 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, l
 					Namespace:       ste.Namespace,
 					OwnerReferences: ownerReference(ste, "Stone"),
 				},
-
-
 				Spec: nuwav1.StatefulSetSpec{
 					Replicas:    &size,
 					ServiceName: fakeSeriveName + "-" + statefulSetName,
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{Labels: labels},
-						Spec:       ste.Spec.Template.Spec,
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      labels,
+							Annotations: map[string]string{"coordinates": string(zonesetAnnotations)},
+						},
+						Spec: ste.Spec.Template.Spec,
 					},
-					Selector: selector,
+					Selector:            selector,
+					PodManagementPolicy: apps.ParallelPodManagement,
+					UpdateStrategy: &nuwav1.StatefulSetUpdateStrategy{
+						Type: apps.RollingUpdateStatefulSetStrategyType,
+						RollingUpdate: &nuwav1.RollingUpdateStatefulSetStrategy{
+							MaxUnavailable:  &maxUnavailable,
+							Partition:       &partition,
+							PodUpdatePolicy: nuwav1.InPlaceIfPossiblePodUpdateStrategyType,
+						},
+					},
 				},
 			}
 		}
+		sts.Spec.Template.Spec.ReadinessGates = make([]corev1.PodReadinessGate, 1, 1)
+		sts.Spec.Template.Spec.ReadinessGates[0] = corev1.PodReadinessGate{ConditionType: "InPlaceUpdateReady"}
 
 		stsPointerSlice = append(stsPointerSlice, sts)
 	}
@@ -151,28 +155,28 @@ func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, st
 		tmp := &corev1.Service{}
 		key := client.ObjectKey{Name: sts.Name, Namespace: sts.Namespace}
 		err := r.Client.Get(ctx, key, tmp)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Create service
+				serviceSpec := ste.Spec.Service.DeepCopy()
+				serviceSpec.Selector = map[string]string{"app": sts.Name}
 
-		if err != nil && !errors.IsNotFound(err) {
-			return err
-		} else {
-			// Create service
-			serviceSpec := ste.Spec.Service.DeepCopy()
-			serviceSpec.Selector = map[string]string{"app": sts.Name}
-
-			service := &corev1.Service{
-				TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            sts.Name,
-					Namespace:       sts.Namespace,
-					OwnerReferences: ownerReference(ste, "Stone"),
-				},
-				Spec: *serviceSpec,
-			}
-			if err = r.Client.Create(ctx, service); err != nil {
+				service := &corev1.Service{
+					TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            sts.Name,
+						Namespace:       sts.Namespace,
+						OwnerReferences: ownerReference(ste, "Stone"),
+					},
+					Spec: *serviceSpec,
+				}
+				if err = r.Client.Create(ctx, service); err != nil {
+					return err
+				}
+				log.Info("Create statefulSet service", "service", sts.Name)
+			} else {
 				return err
 			}
-
-			log.Info("Create statefulSet service", "service", sts.Name)
 		}
 
 		return nil
@@ -223,9 +227,9 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 					"error",
 					err.Error(),
 				)
+
 				return err
 			}
-
 		}
 
 		if *tmp.Spec.Replicas != *sts.Spec.Replicas ||
@@ -251,17 +255,7 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 
 func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, ste *nuwav1.Stone) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		var last nuwav1.Coordinates
-		var tmpSteSpec nuwav1.StoneSpec
-		str, ok := ste.Annotations["spec"]
-		if ok {
-			if err := json.Unmarshal([]byte(str), &tmpSteSpec); err != nil {
-				return err
-			}
-			last = tmpSteSpec.Coordinates.DeepCopy()
-		}
-
-		statefulSets, err := r.getStatefulSet(ctx, log, last, ste)
+		statefulSets, err := r.getStatefulSet(ctx, log, ste.Spec.Coordinates, ste)
 		if err != nil {
 			return err
 		}
