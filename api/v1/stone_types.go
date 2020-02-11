@@ -60,21 +60,16 @@ type CoordinatesGroup struct {
 type StoneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	DesiredReplicas    int32 `json:"desired_replicas"`
-	AlreadyReplicas    int32 `json:"already_replicas"`
-	DesiredStatefulSet int32 `json:"desired_stateful_set"`
-	AlreadyStatefulSet int32 `json:"already_stateful_set"`
+	Replicas    int32 `json:"replicas,omitempty"`
+	StatefulSet int32 `json:"statefulset,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nuwaste
-// +kubebuilder:subresource:scale:specpath=".spec.replicas",statuspath=".status.replicas"
-// +kubebuilder:printcolumn:name="DESIRED-REPLICAS",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
-// +kubebuilder:printcolumn:name="ALREADY-REPLICAS",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
-// +kubebuilder:printcolumn:name="DESIRED-STATEFUL-SET",type="integer",JSONPath=".status.desired_stateful_set",description="The desired number of desired_stateful_set."
-// +kubebuilder:printcolumn:name="ALREADY-STATEFUL-SET",type="integer",JSONPath=".status.already_deployment",description="The already replicas number of desired_stateful_set."
+// +kubebuilder:printcolumn:name="REPLICAS",type="integer",JSONPath=".status.replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="STATEFULSET",type="integer",JSONPath=".status.statefulset",description="The desired number of statefulset."
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Stone struct {
 	metav1.TypeMeta   `json:",inline"`

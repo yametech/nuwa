@@ -21,5 +21,6 @@ type StrategyType string
 const (
 	Alpha   StrategyType = "Alpha"
 	Beta    StrategyType = "Beta"
+	Omega   StrategyType = "Omega"
 	Release StrategyType = "Release"
 )

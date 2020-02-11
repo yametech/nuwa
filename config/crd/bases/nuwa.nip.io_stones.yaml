@@ -9,21 +9,13 @@ metadata:
   name: stones.nuwa.nip.io
 spec:
   additionalPrinterColumns:
-  - JSONPath: .status.desired_replicas
+  - JSONPath: .status.replicas
     description: The desired number of pods.
-    name: DESIRED-REPLICAS
+    name: REPLICAS
     type: integer
-  - JSONPath: .status.already_replicas
-    description: The desired number of pods.
-    name: ALREADY-REPLICAS
-    type: integer
-  - JSONPath: .status.desired_stateful_set
-    description: The desired number of desired_stateful_set.
-    name: DESIRED-STATEFUL-SET
-    type: integer
-  - JSONPath: .status.already_deployment
-    description: The already replicas number of desired_stateful_set.
-    name: ALREADY-STATEFUL-SET
+  - JSONPath: .status.statefulset
+    description: The desired number of statefulset.
+    name: STATEFULSET
     type: integer
   - JSONPath: .metadata.creationTimestamp
     description: CreationTimestamp is a timestamp representing the server time when
@@ -42,9 +34,6 @@ spec:
     singular: stone
   scope: Namespaced
   subresources:
-    scale:
-      specReplicasPath: .spec.replicas
-      statusReplicasPath: .status.replicas
     status: {}
   validation:
     openAPIV3Schema:
@@ -6013,26 +6002,15 @@ spec:
         status:
           description: StoneStatus defines the observed state of Stone
           properties:
-            already_replicas:
-              format: int32
-              type: integer
-            already_stateful_set:
-              format: int32
-              type: integer
-            desired_replicas:
+            replicas:
               description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                 of cluster Important: Run "make" to regenerate code after modifying
                 this file'
               format: int32
               type: integer
-            desired_stateful_set:
+            statefulset:
               format: int32
               type: integer
-          required:
-          - already_replicas
-          - already_stateful_set
-          - desired_replicas
-          - desired_stateful_set
           type: object
       type: object
   version: v1

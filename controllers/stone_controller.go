@@ -82,7 +82,6 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, cgs []nuwav1.CoordinatesGroup, ste *nuwav1.Stone) ([]*nuwav1.StatefulSet, error) {
 	stsPointerSlice := make([]*nuwav1.StatefulSet, 0)
 
-	groupIndex := 1
 	for i := range cgs {
 		statefulSetName := statefulSetName(ste, cgs[i].Group, i)
 		sts := &nuwav1.StatefulSet{}
@@ -96,10 +95,12 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		switch ste.Spec.Strategy {
 		case nuwav1.Alpha:
 			size = 1
-			if groupIndex > 1 {
-				break
+			if i > 0 {
+				continue
 			}
 		case nuwav1.Beta:
+			size = 1
+		case nuwav1.Omega:
 			size = int32(cgs[i].Zoneset.Len())
 		case nuwav1.Release:
 			size = *cgs[i].Replicas
@@ -167,8 +168,11 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		sts.Spec.UpdateStrategy.RollingUpdate.Partition = &partition
 
 		stsPointerSlice = append(stsPointerSlice, sts)
+	}
 
-		groupIndex++
+	ste.Status.StatefulSet = int32(len(stsPointerSlice))
+	for i := range stsPointerSlice {
+		ste.Status.Replicas += *stsPointerSlice[i].Spec.Replicas  // TODO: up not down?
 	}
 
 	return stsPointerSlice, nil
@@ -257,7 +261,6 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 		}
 
 		if *tmp.Spec.Replicas != *sts.Spec.Replicas || !reflect.DeepEqual(tmp.Spec.Template.Spec, sts.Spec.Template.Spec) {
-			//sts.Spec.Template.Spec = ste.Spec.Template.Spec
 			if err := r.Client.Update(ctx, sts); err != nil {
 				log.Info(
 					"updateStatefulSet update error",
@@ -288,6 +291,7 @@ func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, 
 				return err
 			}
 		}
+
 		for i := range statefulSets {
 			sts := statefulSets[i]
 			if err := r.updateService(ctx, log, ste, sts); err != nil {
@@ -309,8 +313,10 @@ func (r *StoneReconciler) updateStone(ctx context.Context, log logr.Logger, ste 
 			ste.Annotations = map[string]string{"spec": string(bytes)}
 		}
 		ste.Annotations["spec"] = string(bytes)
-		err = r.Client.Update(ctx, ste)
-		if err != nil {
+		if err = r.Client.Update(ctx, ste); err != nil {
+			return err
+		}
+		if err := r.Client.Status().Update(ctx, ste); err != nil {
 			return err
 		}
 
