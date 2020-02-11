@@ -82,6 +82,7 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, cgs []nuwav1.CoordinatesGroup, ste *nuwav1.Stone) ([]*nuwav1.StatefulSet, error) {
 	stsPointerSlice := make([]*nuwav1.StatefulSet, 0)
 
+	groupIndex := 1
 	for i := range cgs {
 		statefulSetName := statefulSetName(ste, cgs[i].Group, i)
 		sts := &nuwav1.StatefulSet{}
@@ -90,19 +91,22 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		// default is the number of machines per group
 		var size int32
 		maxUnavailable := intstr.FromInt(1)
-		partition := int32(1)
+		partition := int32(0) // default 0
 
-		if ste.Spec.Strategy == nuwav1.Alpha {
+		switch ste.Spec.Strategy {
+		case nuwav1.Alpha:
 			size = 1
-			partition = int32(0)
-		} else if ste.Spec.Strategy == nuwav1.Beta {
-			size = int32(cgs[i].Zoneset.Len())
-			if size <= 1 {
-				partition = int32(0)
+			if groupIndex > 1 {
+				break
 			}
-		} else if ste.Spec.Strategy == nuwav1.Release {
+		case nuwav1.Beta:
+			size = int32(cgs[i].Zoneset.Len())
+		case nuwav1.Release:
 			size = *cgs[i].Replicas
-			partition = int32(0)
+		default:
+			ste.Spec.Strategy = nuwav1.Alpha
+			size = 1
+			log.Info("stone strategy definition is incorrect or exceeded")
 		}
 
 		if err := r.Client.Get(ctx, key, sts); err != nil {
@@ -163,6 +167,8 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		sts.Spec.UpdateStrategy.RollingUpdate.Partition = &partition
 
 		stsPointerSlice = append(stsPointerSlice, sts)
+
+		groupIndex++
 	}
 
 	return stsPointerSlice, nil
@@ -276,12 +282,14 @@ func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, 
 		if err != nil {
 			return err
 		}
-
 		for i := range statefulSets {
 			sts := statefulSets[i]
 			if err := r.updateStatefulSet(ctx, log, sts, ste); err != nil {
 				return err
 			}
+		}
+		for i := range statefulSets {
+			sts := statefulSets[i]
 			if err := r.updateService(ctx, log, ste, sts); err != nil {
 				return err
 			}
