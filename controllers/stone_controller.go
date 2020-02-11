@@ -170,11 +170,6 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		stsPointerSlice = append(stsPointerSlice, sts)
 	}
 
-	ste.Status.StatefulSet = int32(len(stsPointerSlice))
-	for i := range stsPointerSlice {
-		ste.Status.Replicas += *stsPointerSlice[i].Spec.Replicas  // TODO: up not down?
-	}
-
 	return stsPointerSlice, nil
 }
 
@@ -291,7 +286,6 @@ func (r *StoneReconciler) syncStatefulSet(ctx context.Context, log logr.Logger, 
 				return err
 			}
 		}
-
 		for i := range statefulSets {
 			sts := statefulSets[i]
 			if err := r.updateService(ctx, log, ste, sts); err != nil {
@@ -315,6 +309,16 @@ func (r *StoneReconciler) updateStone(ctx context.Context, log logr.Logger, ste 
 		ste.Annotations["spec"] = string(bytes)
 		if err = r.Client.Update(ctx, ste); err != nil {
 			return err
+		}
+
+		statefulSets, err := r.getStatefulSet(ctx, log, ste.Spec.Coordinates, ste)
+		if err != nil {
+			return err
+		}
+		ste.Status.Replicas = 0
+		ste.Status.StatefulSet = int32(len(statefulSets))
+		for i := range statefulSets {
+			ste.Status.Replicas += statefulSets[i].Status.Replicas
 		}
 		if err := r.Client.Status().Update(ctx, ste); err != nil {
 			return err
