@@ -19,9 +19,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"reflect"
-
 	"github.com/go-logr/logr"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	apps "k8s.io/api/apps/v1"
@@ -29,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -60,6 +59,10 @@ func (r *StoneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ste := &nuwav1.Stone{}
 	if err := r.Client.Get(ctx, req.NamespacedName, ste); err != nil {
 		if errors.IsNotFound(err) {
+			logf.Info("receive request could not be found stone resource or non specified resources",
+				"namespace",
+				req.Namespace, "name", req.Name,
+			)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -83,66 +86,81 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		statefulSetName := statefulSetName(ste, cgs[i].Group, i)
 		sts := &nuwav1.StatefulSet{}
 		key := client.ObjectKey{Name: statefulSetName, Namespace: ste.Namespace}
+
+		// default is the number of machines per group
+		var size int32
+		maxUnavailable := intstr.FromInt(1)
+		partition := int32(1)
+
+		if ste.Spec.Strategy == nuwav1.Alpha {
+			size = 1
+			partition = int32(0)
+		} else if ste.Spec.Strategy == nuwav1.Beta {
+			size = int32(cgs[i].Zoneset.Len())
+			if size <= 1 {
+				partition = int32(0)
+			}
+		} else if ste.Spec.Strategy == nuwav1.Release {
+			size = *cgs[i].Replicas
+			partition = int32(0)
+		}
+
 		if err := r.Client.Get(ctx, key, sts); err != nil {
-			if !errors.IsNotFound(err) {
+			if errors.IsNotFound(err) {
+				// structure new statefulset
+				labels := map[string]string{"app": statefulSetName}
+				selector := &metav1.LabelSelector{MatchLabels: labels}
+				fakeSeriveName := "fake"
+				zonesetAnnotations, _ := json.Marshal(cgs[i].Zoneset)
+				sts = &nuwav1.StatefulSet{
+					TypeMeta: metav1.TypeMeta{APIVersion: "nuwa.nip.io/v1", Kind: "StatefulSet"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            statefulSetName,
+						Namespace:       ste.Namespace,
+						OwnerReferences: ownerReference(ste, "Stone"),
+					},
+					Spec: nuwav1.StatefulSetSpec{
+						//Replicas:    &size,
+						ServiceName: fakeSeriveName + "-" + statefulSetName,
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels:      labels,
+								Annotations: map[string]string{"coordinates": string(zonesetAnnotations)},
+							},
+							Spec: ste.Spec.Template.Spec,
+						},
+						Selector:            selector,
+						PodManagementPolicy: apps.ParallelPodManagement,
+						UpdateStrategy: &nuwav1.StatefulSetUpdateStrategy{
+							Type: apps.RollingUpdateStatefulSetStrategyType,
+							RollingUpdate: &nuwav1.RollingUpdateStatefulSetStrategy{
+								MaxUnavailable:  &maxUnavailable,
+								Partition:       &partition,
+								PodUpdatePolicy: nuwav1.InPlaceIfPossiblePodUpdateStrategyType,
+							},
+						},
+					},
+				}
+
+				sts.Spec.Template.Spec.ReadinessGates = make([]corev1.PodReadinessGate, 1, 1)
+				sts.Spec.Template.Spec.ReadinessGates[0] = corev1.PodReadinessGate{ConditionType: "InPlaceUpdateReady"}
+
+				log.Info(
+					"statefulSet not found",
+					"namespace",
+					ste.Namespace,
+					"statefulSetName",
+					statefulSetName,
+				)
+			} else {
 				return nil, err
 			}
-			log.Info(
-				"statefulSet not found",
-				"namespace",
-				ste.Namespace,
-				"statefulSetName",
-				statefulSetName,
-			)
-
-			// default is the number of machines per group
-			var size int32
-			if ste.Spec.Strategy == nuwav1.Alpha {
-				size = 1
-			} else if ste.Spec.Strategy == nuwav1.Beta {
-				size = int32(cgs[i].Zoneset.Len())
-			} else if ste.Spec.Strategy == nuwav1.Release {
-				size = *cgs[i].Replicas
-			}
-			// structure new statefulset
-			labels := map[string]string{"app": statefulSetName}
-			selector := &metav1.LabelSelector{MatchLabels: labels}
-			fakeSeriveName := "fake"
-			maxUnavailable := intstr.FromInt(1)
-			partition := int32(1)
-			zonesetAnnotations, _ := json.Marshal(cgs[i].Zoneset)
-			sts = &nuwav1.StatefulSet{
-				TypeMeta: metav1.TypeMeta{APIVersion: "nuwa.nip.io/v1", Kind: "StatefulSet"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            statefulSetName,
-					Namespace:       ste.Namespace,
-					OwnerReferences: ownerReference(ste, "Stone"),
-				},
-				Spec: nuwav1.StatefulSetSpec{
-					Replicas:    &size,
-					ServiceName: fakeSeriveName + "-" + statefulSetName,
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      labels,
-							Annotations: map[string]string{"coordinates": string(zonesetAnnotations)},
-						},
-						Spec: ste.Spec.Template.Spec,
-					},
-					Selector:            selector,
-					PodManagementPolicy: apps.ParallelPodManagement,
-					UpdateStrategy: &nuwav1.StatefulSetUpdateStrategy{
-						Type: apps.RollingUpdateStatefulSetStrategyType,
-						RollingUpdate: &nuwav1.RollingUpdateStatefulSetStrategy{
-							MaxUnavailable:  &maxUnavailable,
-							Partition:       &partition,
-							PodUpdatePolicy: nuwav1.InPlaceIfPossiblePodUpdateStrategyType,
-						},
-					},
-				},
-			}
 		}
-		sts.Spec.Template.Spec.ReadinessGates = make([]corev1.PodReadinessGate, 1, 1)
-		sts.Spec.Template.Spec.ReadinessGates[0] = corev1.PodReadinessGate{ConditionType: "InPlaceUpdateReady"}
+
+		sts.Spec.Replicas = &size
+		sts.Spec.Template.Spec.Containers = ste.Spec.Template.Spec.Containers
+		sts.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable = &maxUnavailable
+		sts.Spec.UpdateStrategy.RollingUpdate.Partition = &partition
 
 		stsPointerSlice = append(stsPointerSlice, sts)
 	}
@@ -232,10 +250,9 @@ func (r *StoneReconciler) updateStatefulSet(ctx context.Context, log logr.Logger
 			}
 		}
 
-		if *tmp.Spec.Replicas != *sts.Spec.Replicas ||
-			reflect.DeepEqual(sts.Spec.Template.Spec, tmp.Spec.Template.Spec) {
-			err := r.Client.Update(ctx, sts)
-			if err != nil {
+		if *tmp.Spec.Replicas != *sts.Spec.Replicas || !reflect.DeepEqual(tmp.Spec.Template.Spec, sts.Spec.Template.Spec) {
+			//sts.Spec.Template.Spec = ste.Spec.Template.Spec
+			if err := r.Client.Update(ctx, sts); err != nil {
 				log.Info(
 					"updateStatefulSet update error",
 					"namespace",
