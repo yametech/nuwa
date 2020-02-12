@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: cn-0
-          image: nginx:latest
+          image: nginx:alpine
           imagePullPolicy: IfNotPresent
       tolerations:
         - key: "node.kubernetes.io/unreachable"
