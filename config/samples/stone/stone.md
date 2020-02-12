@@ -1,6 +1,6 @@
 nuwa stone 资源
 --
-* 基于 nuwa statefulset 高层实现,实现自动创建service关联关系的试,让在使用statefulset的复杂参数中定制一套标准;
+* 基于 nuwa statefulset 高层实现,实现自动创建service关联关系,让在使用statefulset的复杂参数中定制一套标准;
 * 由stone创建的statefulset不能单独管理,因为stone会把statefulset状态以stone定义的期望目标实现协调,但是statefulset的滚动更新的方式可以由用户自定义;
 * 资源管理statefulset以组的方式,将以地理标识组来实现分组并网格化打散pod在各有个node上,实现高可用;
 * 每组的实现都是一个单元化,故在单机房的情况下就使用一个组;
