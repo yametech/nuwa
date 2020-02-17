@@ -29,10 +29,8 @@ all: manager
 
 .PHONY: lint
 lint:
-	# Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for windows
-	export GL_DEBUG=linters_output
-    export GOPACKAGESPRINTGOLISTERRORS=1
-	$(GOLANGCI_LINT) run --fix
+	# Due to https://github.com/golangci/golangci-lint/issues/580, we need to add --fix for window
+	GL_DEBUG=linters_output GOPACKAGESPRINTGOLISTERRORS=1 $(GOLANGCI_LINT) run --fix
 
 # SSL webhook local development
 gen-ssl:
