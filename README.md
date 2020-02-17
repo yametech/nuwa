@@ -30,7 +30,7 @@ Resources fluctuate the resources of the machine at the same time in a large num
 * Beta releases 1 pod in each node
 * Release release as expected
 
-Rsefer to the following template to define your parameter template
+Refer to the following template to define your parameter template
 ```shell script
 apiVersion: nuwa.nip.io/v1
 kind: Water
@@ -89,7 +89,7 @@ Resources fluctuate the resources of the machine at the same time in a large num
 * Release release as expected
 
 
-Rsefer to the following template to define your parameter template
+Refer to the following template to define your parameter template
 ```shell script
 apiVersion: nuwa.nip.io/v1
 kind: Stone
@@ -138,7 +138,7 @@ spec:
 ## Injector
  Injector is a new Sidecar resource similar to Kubernetes v1.18.x, but here, the injector only intercepts Water and Stone resources, and associates the above resources as the owner
  
- Example fow Water
+ Example for Water
  ```shell script
 apiVersion: nuwa.nip.io/v1
 kind: Water
