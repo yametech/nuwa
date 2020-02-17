@@ -28,9 +28,9 @@ cat >  ca-csr.json <<EOF
 },
 "names": [
 {
-  "C": "CN",
-  "ST": "GuangZhou",
-  "L": "GuangZhou",
+  "C": "${COUNTRY}",
+  "ST": "${CITY}",
+  "L": "${CITY}",
   "O": "k8s",
   "OU": "System"
 }
@@ -42,10 +42,7 @@ cat > tls-csr.json <<EOF
 {
   "CN": "nuwa",
 	"hosts": [
-    "localhost",
-    "localhost",
-    "localhost",
-    "localhost"
+    "${YOU_DEV_OR_DELOY_IP}"
   ],
   "key": {
     "algo": "rsa",
@@ -53,9 +50,9 @@ cat > tls-csr.json <<EOF
   },
   "names": [
     {
-      "C": "CN",
-      "ST": "GuangZhou",
-      "L": "GuangZhou",
+      "C": "${COUNTRY}",
+      "ST": "${CITY}",
+      "L": "${CITY}",
       "O": "k8s",
       "OU": "System"
     }
