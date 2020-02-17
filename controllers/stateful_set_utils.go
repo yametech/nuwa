@@ -257,9 +257,8 @@ func coordinatorPod(client client.Client, set *nuwav1.StatefulSet, pod *v1.Pod, 
 			return pod
 		}
 
-		var cod nuwav1.Coordinate
 		// Abandoned sort by replacs size , Matrix publishing by default
-		cod = coordinates[ordinal%len(coordinates)]
+		cod := coordinates[ordinal%len(coordinates)]
 		codLabels, err := coordinateMatchLabels(&cod)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate coordiante label error %s", set.Namespace, set.Name, err))
