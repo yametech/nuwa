@@ -147,7 +147,7 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 					},
 				}
 
-				sts.Spec.Template.Spec.ReadinessGates = make([]corev1.PodReadinessGate, 1, 1)
+				sts.Spec.Template.Spec.ReadinessGates = make([]corev1.PodReadinessGate, 1)
 				sts.Spec.Template.Spec.ReadinessGates[0] = corev1.PodReadinessGate{ConditionType: "InPlaceUpdateReady"}
 
 				log.Info(
