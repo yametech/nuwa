@@ -32,13 +32,10 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: ${{ env.GOVER }}
-      - name: Run make build
-        run: make all
-
-#      - name: Install golangci-lint
-#        run: |
-#          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "${{ env.GOROOT }}/bin" v1.23.3
-#      - name: Check out code into the Go module directory
-#        uses: actions/checkout@v1
-#      - name: Run make  lint
-#        run:  make lint
+      - name: Install golangci-lint
+        run: |
+          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "${{ env.GOROOT }}/bin" v1.23.3
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v1
+      - name: Run make  lint
+        run:  make lint
