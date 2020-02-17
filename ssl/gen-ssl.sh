@@ -42,10 +42,10 @@ cat > tls-csr.json <<EOF
 {
   "CN": "nuwa",
 	"hosts": [
-    "10.1.140.202",
-    "10.1.140.83",
-    "10.1.180.126",
-    "192.168.3.68"
+    "localhost",
+    "localhost",
+    "localhost",
+    "localhost"
   ],
   "key": {
     "algo": "rsa",
