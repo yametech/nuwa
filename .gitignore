@@ -27,3 +27,13 @@ bin/*
 
 # ignore local vendor
 vendor
+
+# ignore local ssl
+ssl/*.csr
+ssl/*.pem
+ssl/*.crt
+ssl/tls-csr.json
+ssl/ca-csr.json
+ssl/ca-config.json
+
+
