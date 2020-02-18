@@ -32,6 +32,16 @@ type StoneSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	// Template describes the pods that will be created.
 	Template corev1.PodTemplateSpec `json:"template"`
+	// Refer to the StatefulSet template
+	// volumeClaimTemplates is a list of claims that pods are allowed to reference.
+	// The StatefulSet controller is responsible for mapping network identities to
+	// claims in a way that maintains the identity of a pod. Every claim in
+	// this list must have at least one matching (by name) volumeMount in one
+	// container in the template. A claim in this list takes precedence over
+	// any volumes in the template, with the same name.
+	// TODO: Define the behavior if a claim already exists with the same name.
+	//tional
+	VolumeClaimTemplates []corev1.PersistentVolumeClaim `json:"volumeClaimTemplates,omitempty"`
 	// Strategy
 	// @Alpha : Only one node that meets expectations is selected to publish 1 application
 	// @Beta  : All node that meets expectations is selected to publish each node 1 application

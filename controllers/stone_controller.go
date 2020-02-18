@@ -144,6 +144,7 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 								PodUpdatePolicy: nuwav1.InPlaceIfPossiblePodUpdateStrategyType,
 							},
 						},
+						VolumeClaimTemplates: ste.Spec.VolumeClaimTemplates,
 					},
 				}
 
