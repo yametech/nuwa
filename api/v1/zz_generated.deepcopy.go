@@ -458,6 +458,13 @@ func (in *StoneList) DeepCopyObject() runtime.Object {
 func (in *StoneSpec) DeepCopyInto(out *StoneSpec) {
 	*out = *in
 	in.Template.DeepCopyInto(&out.Template)
+	if in.VolumeClaimTemplates != nil {
+		in, out := &in.VolumeClaimTemplates, &out.VolumeClaimTemplates
+		*out = make([]corev1.PersistentVolumeClaim, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Coordinates != nil {
 		in, out := &in.Coordinates, &out.Coordinates
 		*out = make([]CoordinatesGroup, len(*in))

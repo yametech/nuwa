@@ -1,0 +1,61 @@
+apiVersion: nuwa.nip.io/v1
+kind: Stone
+metadata:
+  name: stone-example
+spec:
+  strategy: Release
+  template:
+    metadata:
+      name: sample
+      labels:
+        app: stone-example
+    spec:
+      containers:
+        - name: cn-0
+          image: nginx:alpine
+          imagePullPolicy: IfNotPresent
+      tolerations:
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: www
+        annotations:
+          volume.alpha.kubernetes.io/storage-class: default
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
+  service:
+    ports:
+      - name: default-web-port
+        protocol: TCP
+        port: 80
+        targetPort: 80
+    type: NodePort
+  coordinates:
+    - group: A
+      replicas: 3
+      zoneset:
+      - zone: A
+        rack: W-01
+        host: node2
+      - zone: A
+        rack: S-02
+        host: node3
+    - group: B
+      replicas: 2
+      zoneset:
+      - zone: B
+        rack: W-01
+        host: node4
+      - zone: B
+        rack: S-02
+        host: node5
