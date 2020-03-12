@@ -7,6 +7,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/json-iterator/go v1.1.8 // indirect
+	github.com/kubernetes-sigs/kustomize v2.0.3+incompatible // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/onsi/ginkgo v1.10.3
 	github.com/onsi/gomega v1.7.1
@@ -20,6 +21,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/code-generator v0.17.3
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a // indirect
 	k8s.io/kubernetes v1.16.0

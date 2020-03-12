@@ -115,3 +115,20 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+# find or download kustomize
+# download kustomize if necessary
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	KUSTOMIZE_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_TMP_DIR ;\
+	go mod init tmp ;\
+	go get github.com/kubernetes-sigs/kustomize ;\
+	rm -rf $$KUSTOMIZE_TMP_DIR ;\
+	}
+kustomize=$(GOBIN)/kustomize
+else
+kustomize=$(shell which kustomize)
+endif

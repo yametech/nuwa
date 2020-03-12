@@ -17,6 +17,7 @@ package main
 
 import (
 	"flag"
+
 	"github.com/golang/glog"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
@@ -24,10 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// non direct reference
-	//_ "k8s.io/code-generator"
+
 	"net/http"
 	"os"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -41,15 +42,14 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
 	_ = nuwav1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
 func podMutatingServe(client client.Client) {
-	certFile := "ssl/tls.crt"
-	ceyFile := "ssl/tls.key"
+	certFile := "/Users/xiaopengdeng/Documents/workspace/go-project/src/github.com/yametech/nuwa/ssl/tls.crt"
+	ceyFile := "/Users/xiaopengdeng/Documents/workspace/go-project/src/github.com/yametech/nuwa/ssl/tls.key"
 	p := nuwav1.Pod{KubeClient: client}
 	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
 	server := &http.Server{
