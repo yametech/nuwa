@@ -1,44 +1,41 @@
-
-# Nuwa 　　　　　　　　　　　　　　　　　　　　　　[中文](README_zh.md)
-
+# 女娲(nuwa)
 [![Build Status](https://github.com/yametech/nuwa/workflows/nuwa/badge.svg?event=push&branch=master)](https://github.com/yametech/nuwa/actions?workflow=nuwa)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yametech/nuwa)](https://goreportcard.com/badge/github.com/yametech/nuwa)
 
 
-## Introduction
+## 背景简介
+   由于原生的Deployment和Statefulset提供了基本的发布策略不能满足我们的场景,比如不支持跨机房发布,按组批量发布,Deployment 不支持步长控制等,所以诞生了我们的女娲项目,女娲项目作为我们云平台的数据平面支持了有状态的资源(Stone)和无状态的资源(Water),并且具有动态资源注入(Injector)。
 
-   Since the native Deployment and Statefulset provides basic publishing strategies that cannot meet our scenario, in some cases it does not support cross-computer room publishing, batch publishing by group, and Deployment does not support step control, etc., so our nuwa project as the data plane of our cloud platform, the project supports stateful resources (stone) and stateless resources (water), and has dynamic resource injection (injector).
 
+## 功能特点
 
-## Features
-
-* Multi-Zone deployment, can be specific to a machine in a rack in a zone.
-* Delicate deployment strategy.
-* Deploy by group, batch deployment.
-* Blue-green deployment, canary deployment.
-* Stateful and stateless deployment.
-* Dynamic injection.
-
+* 支持多机房发布,可以具体到某个机房上的某个机柜上的某台机器
+* 支持细腻的发布次略
+* 支持按组发布,批量发布
+* 支持蓝绿发布,金丝雀发布
+* 支持有状态和无状态的发布
+* 支持动态注入
 
 
 
-## Water Resource
 
-### Advanced implementation of Deployment based on kubernetes  native resource
+## Water资源
 
-1. Supports geographical location deployment, which can be specific to a machine in a rack in a zone.
-2. Support delicate deployment strategy: Alpha, beta, release.
+### Water资源是高级的Deployment资源的实现
+
+1. 支持地理位置标识发布,可以具体到某个机房的某个机架上的某台机器上的发布。
+2. 支持细腻的发布策略:Alpha,Beta,Release发布。
 
 
-### Deployment Strategy
+### 发布策略
 
-This deployment strategy occurs because the released Pod itself is wrong (such as a program startup error due to lack of configuration). If a large number of releases will cause machine jitter and affect the running of the running Pod, reduce the jitter as much as possible. Lowest, let the user confirm whether the first pod released is wrong, and confirm that the next pod will be released.
+出现这种发布策略,是因为发布的Pod本身是错误的(比如缺少配置导致程序启动错误),如果大量发布，会导致机器的抖动，影响正在运行的Pod的运行,尽可能的把抖动降到最低,让用户确认发布的第一个Pod是否有误,确认会进行下一次发布。
 
-* Alpha: Find a node randomly and only deploy a Pod, waiting for the user to confirm whether there is an error.
-* Beta:  Pods are deployed on each Node.
-* Release: Full deployment.
+* Alpha: 找到一个节点,仅且发布一个Pod,等待用户确认是否有误。
+* Beta:  在每个Node上都发布Pod。
+* Release: 全量发布
 
-### Water resource usage template
+### Water资源使用模板
 
 ``` shell script
 
@@ -85,24 +82,23 @@ spec:
 
 ```
 
-## Stone resource
+## Stone资源
    
-### Advanced implementation of Statefulset based on kubernetes native resource
+### 基于k8s原生资源Statefulset的高级实现
 
-1. Supports geo-location publishing, which can be specific to a machine in a rack in a zone.
-2. Support deployment strategy by group: Alpha, Beta, Omega, Release release(
-because of the need to mount the disk).
+1. 支持地理位置标识发布,可以具体到某个机房的某个机架上的某台机器上的发布。
+2. 支持按组发布策略:Alpha,Beta,Omega,Release发布。
 
-### Deployment Strategy
+### 发布策略
 
-* Alpha: Pick one of the groups and publish 1 Pod
-* Beta:  Pick one (multi-group / one-group) to publish 1 Pod
-* Omega: Pick multiple groups and publish 1 Pod on each machine
-* Release: Full release
-
+* Alpha: 挑选其中一组的一个发布1个Pod
+* Beta:  挑选(多组/一组)的一个发布1个Pod
+* Omega: 挑选多组的每个机器上发布1个Pod
+* Release: 全量发布
 
 
-### Stone resource usage template
+
+### Stone资源使用模板
 
 ``` shell script
 
@@ -150,12 +146,12 @@ spec:
         host: node5
 ```
 
-## Injector resource
+## Injector资源
 
-   The implementation of the Injector resource combined with the CRD + Sidecar, which is to allow users to dynamically inject log collection, configuration files, and  tracking agent injection. Supports injection before and after the business container, combined with Water resource and Stone resource. When Water is deleted, the corresponding Injector resource will also be GC.
+   Injector资源结合CRD+Sidecar方式的实现是为了让用户动态的注入日志收集,配置文件,链路追踪的agent的注入。支持在业务容器前和后注入,和Water资源和Stone资源结合,当Water被delete,相应的Injector资源也会被GC。
 
 
-### With the use of Water resources
+### 配合Water资源和Stone资源的使用案例
 
 
  ```shell script
@@ -238,12 +234,12 @@ spec:
 ```
 
 
-## Installation requirements
+## 安装需求
 
-* Requires kubernetes cluster version greater than or equal to 1.15.x
+* 需要 kubernetes 集群大于或等于1.15.x的版本
 
 
-## Label the machine
+## 给机器打标签
 
 ```shell script
 
@@ -255,7 +251,7 @@ kubectl  label nodes node5 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node5 -
 ```
 
 
- ## Install Nuwa CRD resource
+ ## 安装女娲CRD
 
  `
    kubectl apply -f https://github.com/yametech/nuwa/releases/download/${VERSION}/nuwa.yaml
