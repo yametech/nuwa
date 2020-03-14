@@ -3,7 +3,7 @@
 
 [![Build Status](https://github.com/yametech/nuwa/workflows/nuwa/badge.svg?event=push&branch=master)](https://github.com/yametech/nuwa/actions?workflow=nuwa)
 [![Go Report Card](https://goreportcard.com/badge/github.com/yametech/nuwa)](https://goreportcard.com/badge/github.com/yametech/nuwa)
-
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://github.com/yametech/nuwa/blob/master/LICENSE)
 
 ## Introduction
 
