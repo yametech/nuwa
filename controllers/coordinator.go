@@ -173,15 +173,15 @@ func organizationNodeAffinity(c *nuwav1.Coordinate, nodeList []string) *corev1.N
 	return &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
-				corev1.NodeSelectorTerm{
+				{
 					MatchExpressions: []corev1.NodeSelectorRequirement{
-						corev1.NodeSelectorRequirement{
+						{
 							Key:      nuwav1.NuwaZoneFlag,
 							Operator: corev1.NodeSelectorOpIn,
 							Values:   []string{c.Zone},
 						}}}}},
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-			corev1.PreferredSchedulingTerm{Weight: 100,
+			{Weight: 100,
 				Preference: corev1.NodeSelectorTerm{MatchExpressions: nodeSelectorRequirements},
 			}}}
 }

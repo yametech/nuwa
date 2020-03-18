@@ -48,8 +48,8 @@ func init() {
 }
 
 func podMutatingServe(client client.Client) {
-	certFile := "/Users/xiaopengdeng/Documents/workspace/go-project/src/github.com/yametech/nuwa/ssl/tls.crt"
-	ceyFile := "/Users/xiaopengdeng/Documents/workspace/go-project/src/github.com/yametech/nuwa/ssl/tls.key"
+	certFile := "ssl/tls.crt"
+	ceyFile := "ssl/tls.key"
 	p := nuwav1.Pod{KubeClient: client}
 	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
 	server := &http.Server{
@@ -60,6 +60,7 @@ func podMutatingServe(client client.Client) {
 		panic(err)
 	}
 }
+
 func usage() {
 	flag.PrintDefaults()
 	os.Exit(2)
