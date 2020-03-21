@@ -26,6 +26,5 @@ RUN GO111MODULE=on go build -a -o manager main.go
 FROM alpine:latest
 WORKDIR /
 COPY --from=builder /workspace/manager .
-COPY ssl ssl
 
 ENTRYPOINT ["/manager"]

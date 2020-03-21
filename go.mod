@@ -8,7 +8,6 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/json-iterator/go v1.1.8 // indirect
-	github.com/kubernetes-sigs/kustomize v2.0.3+incompatible // indirect
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/onsi/ginkgo v1.10.3
 	github.com/onsi/gomega v1.7.1
@@ -17,15 +16,11 @@ require (
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.0.1
-	gopkg.in/src-d/go-parse-utils.v1 v1.1.2 // indirect
-	gopkg.in/src-d/proteus.v1 v1.3.3 // indirect
-	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v11.0.0+incompatible
-	k8s.io/code-generator v0.17.3 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a // indirect
 	k8s.io/kubernetes v1.16.0

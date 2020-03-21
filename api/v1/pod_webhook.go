@@ -1,5 +1,5 @@
 /*
-Copyright 2019 yametech.
+Copyright 2019 yametech Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package v1
 
 import (
@@ -38,13 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//const (
-//	annotationPrefix = "sidecar.admission.nuwav1.io"
-//)
-
-var (
-	schemePod = runtime.NewScheme()
-)
+var schemePod = runtime.NewScheme()
 
 // +kubebuilder:object:root=false
 // +k8s:deepcopy-gen=false

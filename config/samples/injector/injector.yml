@@ -1,5 +1,3 @@
-
-
 apiVersion: nuwa.nip.io/v1
 kind: Injector
 metadata:

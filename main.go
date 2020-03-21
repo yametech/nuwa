@@ -48,8 +48,8 @@ func init() {
 }
 
 func podMutatingServe(client client.Client) {
-	certFile := "ssl/tls.crt"
-	ceyFile := "ssl/tls.key"
+	certFile := "/ssl/tls.crt"
+	ceyFile := "/ssl/tls.key"
 	p := nuwav1.Pod{KubeClient: client}
 	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
 	server := &http.Server{
@@ -88,7 +88,7 @@ func main() {
 			MetricsBindAddress: metricsAddr,
 			LeaderElection:     enableLeaderElection,
 			Port:               9443,
-			CertDir:            "ssl/",
+			CertDir:            "/ssl/",
 		})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -103,10 +103,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Water")
 		os.Exit(1)
 	}
-	if err = (&nuwav1.Water{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Water")
-		os.Exit(1)
-	}
 	if err = (&controllers.StoneReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
@@ -115,11 +111,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Stone")
 		os.Exit(1)
 	}
-	if err = (&nuwav1.Stone{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Stone")
-		os.Exit(1)
-	}
-
 	if err = (&controllers.InjectorReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Injector"),

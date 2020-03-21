@@ -1,8 +1,6 @@
 {
   "CN": "nuwa",
-	"hosts": [
-    "192.168.0.1"
-  ],
+	"hosts":[ "nuwa-controller-manager-service.svc.cluster.local" , "127.0.0.1" ],
   "key": {
     "algo": "rsa",
     "size": 2048

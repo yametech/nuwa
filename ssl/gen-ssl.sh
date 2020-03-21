@@ -41,9 +41,7 @@ EOF
 cat > tls-csr.json <<EOF
 {
   "CN": "nuwa",
-	"hosts": [
-    "${YOU_DEV_OR_DELOY_IP}"
-  ],
+	"hosts":[ "${DEPLOYMENT_DNSNAME}" , "127.0.0.1" ],
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -69,4 +67,10 @@ openssl x509  -noout -text -in ca.pem
 
 mv tls-key.pem tls.key
 mv tls.pem tls.crt
+
+echo "tls.crt\r\n----------------------------------------------------------------"
 cat tls.crt | base64
+echo "----------------------------------------------------------------\r\n"
+echo "tls.key\r\n----------------------------------------------------------------"
+cat tls.key | base64
+echo "----------------------------------------------------------------\r\n"

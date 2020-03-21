@@ -39,3 +39,4 @@ ssl/ca-csr.json
 ssl/ca-config.json
 
 
+devel/*

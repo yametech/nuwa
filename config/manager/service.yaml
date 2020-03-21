@@ -1,18 +1,21 @@
 apiVersion: v1
 kind: Service
 metadata:
-  metadata:
   labels:
     control-plane: controller-manager
-  name: nuwa-sidecar-injector
+  name: controller-manager-service
   namespace: system
 spec:
   type: ClusterIP
+  selector:
+    control-plane: controller-manager
+    app: controller-manager
   ports:
   - port: 443
     targetPort: https
     protocol: TCP
-    name: https
-  selector:
-    control-plane: controller-manager
-    app: nuwa-sidecar-injector
+    name: https-web-hook
+  - port: 9443
+    targetPort: https
+    protocol: TCP
+    name: https-manager-server    

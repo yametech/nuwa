@@ -1,6 +1,5 @@
-
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= yametech/nuwa-controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -61,13 +60,17 @@ install: manifests
 	kustomize build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests
+uninstall:
 	kustomize build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | kubectl apply -f -
+
+release:
+	cd config/manager && kustomize edit set image controller=${IMG}
+	kustomize build config/default | cat > release.yaml
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
