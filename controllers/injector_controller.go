@@ -64,8 +64,6 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, fmt.Errorf("%s", "required name is not defined")
 	}
 
-	//logf.Info("Fetched nuwav1 injector object")
-
 	objKey := client.ObjectKey{Namespace: instance.Spec.NameSpace, Name: instance.Spec.Name}
 	switch instance.Spec.ResourceType {
 	case "Water":

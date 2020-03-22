@@ -90,19 +90,11 @@ func (ssc *StatefulSetReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		ssc.Log.Info("Finished syncing statefulset", "key", key, "time_since", time.Since(startTime))
 	}()
 
-	//ssc.Log.Info("StatefulSet has been deleted", "key", key)
-	//updateExpectations.DeleteExpectations(key)
 	objKey := realReconcileName(req.NamespacedName)
 	set := &nuwav1.StatefulSet{}
 	err := ssc.Client.Get(ctx, objKey, set)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf(
-				"unable to retrieve StatefulSet %v from store: %v or not match statefulset named rule: %s",
-				key,
-				err,
-				statefulPodRegex.String(),
-			))
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
