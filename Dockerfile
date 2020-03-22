@@ -19,12 +19,14 @@ COPY controllers/ controllers/
 
 # Build
 ENV GOPROXY=https://goproxy.cn,https://goproxy.io,https://mirrors.aliyun.com/goproxy/,https://athens.azurefd.net,direct
-RUN GO111MODULE=on go build -a -o manager main.go
+# Alpine does not support dynamic library linking , so disable cgo compiled and add ldflags
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build --ldflags "-extldflags -static" -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM alpine:latest
 WORKDIR /
+RUN mkdir /metrics
 COPY --from=builder /workspace/manager .
 
 ENTRYPOINT ["/manager"]
