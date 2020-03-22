@@ -130,7 +130,7 @@ func hostMatchLabels(c *nuwav1.Coordinate) (client.MatchingLabels, error) {
 func coordinateName(c *nuwav1.Coordinate) (string, error) {
 	res := ""
 	if c.Zone == "" {
-		return "", ErrNeedAtLeastZone
+		return "", fmt.Errorf("%s", "coordinate need to specify at least zone")
 	}
 	res += c.Zone
 	res += "-"

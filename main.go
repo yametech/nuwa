@@ -17,20 +17,16 @@ package main
 
 import (
 	"flag"
+	"net/http"
+	"os"
 
-	"github.com/golang/glog"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-
-	"net/http"
-	"os"
-
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -47,23 +43,13 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func podMutatingServe(client client.Client) {
+func podMutatingServe(pod *nuwav1.Pod) {
 	certFile := "/ssl/tls.crt"
 	ceyFile := "/ssl/tls.key"
-	p := nuwav1.Pod{KubeClient: client}
-	http.HandleFunc("/mutating-pods", p.ServeMutatePods)
-	server := &http.Server{
-		Addr: ":443",
-	}
-	glog.Infof("About to start serving pod webhooks: %#v", server)
-	if err := server.ListenAndServeTLS(certFile, ceyFile); err != nil {
+	http.HandleFunc("/mutating-pods", pod.ServeMutatePods)
+	if err := http.ListenAndServeTLS(":443", certFile, ceyFile, nil); err != nil {
 		panic(err)
 	}
-}
-
-func usage() {
-	flag.PrintDefaults()
-	os.Exit(2)
 }
 
 func main() {
@@ -72,14 +58,10 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
-	flag.Usage = usage
-	_ = flag.Set("logtostderr", "true")
-	_ = flag.Set("stderrthreshold", "WARNING")
-	_ = flag.Set("v", "6")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = true
+		o.Development = false
 	}))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(),
@@ -88,7 +70,7 @@ func main() {
 			MetricsBindAddress: metricsAddr,
 			LeaderElection:     enableLeaderElection,
 			Port:               9443,
-			CertDir:            "/ssl/",
+			CertDir:            "ssl/",
 		})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -128,12 +110,9 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-	c := mgr.GetClient()
-	go func() {
-		podMutatingServe(c)
-	}()
+	go podMutatingServe(&nuwav1.Pod{Client: mgr.GetClient(), Log: ctrl.Log.WithName("webhook").WithName("pod webhook")})
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting muwa controller manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

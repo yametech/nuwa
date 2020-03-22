@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-logr/logr"
+	error_stack "github.com/pkg/errors"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"time"
 )
 
 // WaterReconciler reconciles a Water object
@@ -46,8 +48,12 @@ type WaterReconciler struct {
 // +kubebuilder:rbac:groups=nuwa.nip.io,resources=waters/status,verbs=get;update;patch
 func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	objectKey := req.NamespacedName
-	logf := r.Log.WithValues("water_injector", objectKey.String(), "namespace", req.Namespace)
 	ctx := context.WithValue(context.TODO(), "request", req)
+
+	startTime := time.Now()
+	defer func() {
+		r.Log.Info("Finished syncing water", "key", req.NamespacedName, "time_since", time.Since(startTime))
+	}()
 
 	instance := &nuwav1.Water{}
 	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
@@ -56,8 +62,6 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		return ctrl.Result{}, err
 	}
-	//  TODO fill logic
-
 	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -69,19 +73,19 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	for i := range coordinators {
 		local := coordinators[i]
-		logf.Info("Reconcile coordinate", "coordinate", local.Name)
+		r.Log.Info("Reconcile coordinate", "coordinate", local.Name)
 		size := int32(1)
 		switch instance.Spec.Strategy {
 		case nuwav1.Alpha:
 			if local.Index > 0 {
 				continue
 			}
-			logf.Info("Water deploy strategy is Alpha")
+			r.Log.Info("Water deploy strategy is Alpha")
 		case nuwav1.Beta:
-			logf.Info("Water deploy strategy is Beta")
+			r.Log.Info("Water deploy strategy is Beta")
 		case nuwav1.Release:
 			size = local.Coordinate.Replicas
-			logf.Info("Water deploy strategy is Release")
+			r.Log.Info("Water deploy strategy is Release")
 		}
 		objKey := client.ObjectKey{
 			Namespace: req.Namespace,
@@ -124,13 +128,8 @@ func (r *WaterReconciler) annotationWater(ctx context.Context, instance *nuwav1.
 }
 
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
-	objectKey := ctx.Value("request").(ctrl.Request).NamespacedName
-	nameSpace := ctx.Value("request").(ctrl.Request).Namespace
-	logf := r.Log.WithValues("water_injector create service", objectKey, "namespace", nameSpace)
-
 	serviceSpec := instance.Spec.Service.DeepCopy()
 	serviceSpec.Selector = map[string]string{"app": instance.Name}
-
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{
@@ -141,21 +140,27 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 		Spec: *serviceSpec,
 	}
 
-	logf.Info("Create service", "service", instance.Name)
-	if err := r.Client.Get(ctx, objectKey, service); err != nil {
+	if err := r.Client.Get(ctx, ctx.Value("request").(ctrl.Request).NamespacedName, service); err != nil {
 		if errors.IsNotFound(err) {
 			if err = r.Client.Create(ctx, service); err != nil {
 				return err
 			}
+			r.Log.Info("Create service", "service", instance.Name)
 			return nil
 		}
-		return err
+		return error_stack.WithStack(err)
 	}
 
 	return nil
 }
 
-func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName client.ObjectKey, instance *nuwav1.Water, size *int32, nodeAffinity *corev1.NodeAffinity) error {
+func (r *WaterReconciler) updateDeployment(
+	ctx context.Context,
+	deployName client.ObjectKey,
+	instance *nuwav1.Water,
+	size *int32,
+	nodeAffinity *corev1.NodeAffinity,
+) error {
 	labels := map[string]string{"app": instance.Name}
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	newTemplate := instance.Spec.Template.DeepCopy()
@@ -196,13 +201,13 @@ func (r *WaterReconciler) updateDeployment(ctx context.Context, deployName clien
 				}
 				return nil
 			}
-			return err
+			return error_stack.WithStack(err)
 		}
 
 		if *oldDeployment.Spec.Replicas != *size {
 			*oldDeployment.Spec.Replicas = *size
 			if err := r.Client.Update(ctx, oldDeployment); err != nil {
-				return err
+				return error_stack.WithStack(err)
 			}
 		}
 		return nil
@@ -246,7 +251,6 @@ func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Wate
 				return err
 			}
 		}
-
 		return nil
 	})
 }
@@ -255,7 +259,6 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 	if instance.Annotations == nil {
 		return nil
 	}
-
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var tmpWaterSpec nuwav1.WaterSpec
 		bs, ok := instance.Annotations["spec"]
@@ -272,7 +275,6 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 		if len(diffSlice) > 0 {
 			for _, c := range tmp1 {
 				if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
-					r.Log.Info("Delete", "room", c.Zone, "cabinet", c.Rack, "host", c.Host)
 					coorName, err := coordinateName(&c)
 					if err != nil {
 						return err
