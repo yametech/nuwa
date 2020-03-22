@@ -17,14 +17,15 @@ package main
 
 import (
 	"flag"
+	"net/http"
+	"os"
+
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"net/http"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
@@ -49,11 +50,6 @@ func podMutatingServe(pod *nuwav1.Pod) {
 	if err := http.ListenAndServeTLS(":443", certFile, ceyFile, nil); err != nil {
 		panic(err)
 	}
-}
-
-func usage() {
-	flag.PrintDefaults()
-	os.Exit(2)
 }
 
 func main() {
