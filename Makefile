@@ -40,11 +40,11 @@ devel-webhook: install
 	kustomize build development/webhook | kubectl delete -f -
 	kustomize build development/webhook | kubectl create -f -
 
-debug: generate fmt vet manifests
+debug: fmt vet manifests
 	dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient
 
 # Run tests
-test: generate fmt vet manifests
+test: fmt vet manifests
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
@@ -52,7 +52,7 @@ manager: generate fmt vet
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
+run: fmt vet manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
@@ -65,11 +65,9 @@ uninstall:
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	kustomize build config/default | kubectl apply -f -
-
-release:
 	cd config/manager && kustomize edit set image controller=${IMG}
 	kustomize build config/default | cat > release.yaml
+	kustomize build config/default | kubectl apply -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
