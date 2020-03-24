@@ -29,6 +29,7 @@ bin/*
 vendor
 
 # ignore local ssl
+ssl
 ssl/*.csr
 ssl/*.pem
 ssl/*.crt
