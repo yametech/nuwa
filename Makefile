@@ -34,6 +34,8 @@ lint:
 # SSL webhook local development
 gen-ssl:
 	pushd ssl > /dev/null && ./gen-ssl.sh && popd > /dev/null
+	sh replace_ssl.sh
+
 
 # Development webhook
 devel-webhook: install
@@ -63,14 +65,18 @@ install: manifests
 uninstall:
 	kustomize build config/crd | kubectl delete -f -
 
+
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy: manifests release
 	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | cat > release.yaml
 	kustomize build config/default | kubectl apply -f -
 
 undeploy:
 	kustomize build config/default | kubectl delete -f -
+
+release: manifests gen-ssl
+	cd config/manager && kustomize edit set image controller=${IMG}
+	kustomize build config/default | cat > release.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen

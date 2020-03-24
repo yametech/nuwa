@@ -25,11 +25,11 @@ spec:
     - zone: A
       rack: W-01
       host: node2
-      replicas: 0
+      replicas: 1
     - zone: A
       rack: S-02
       host: node3
-      replicas: 3
+      replicas: 0
     - zone: B
       rack: W-01
       host: node4

@@ -70,7 +70,7 @@ func main() {
 			MetricsBindAddress: metricsAddr,
 			LeaderElection:     enableLeaderElection,
 			Port:               9443,
-			CertDir:            "ssl/",
+			CertDir:            "/ssl/",
 		})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

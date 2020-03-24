@@ -38,10 +38,30 @@ cat >  ca-csr.json <<EOF
 }
 EOF
 
+
+if [ ! $NUWA_DEV_IP ]; then
+  HOSTS='[
+        "nuwa-controller-manager-service.nuwa-system.svc",
+        "nuwa-controller-manager-service.svc.cluster.local",
+        "nuwa-sidecar-injector.svc.cluster.local",
+        "nuwa-controller-manager-metrics-service.svc.cluster.local"
+        ]'
+else
+  # shellcheck disable=SC2016
+  HOSTS='[ "${NUWA_DEV_IP}" ]'
+fi
+
+if [ ! $COUNTRY ]; then
+COUNTRY=CN
+fi
+if [ ! $CITY ]; then
+CITY=GuangZhou
+fi
+
 cat > tls-csr.json <<EOF
 {
   "CN": "nuwa",
-	"hosts":[ "${DEPLOYMENT_DNSNAME}" , "127.0.0.1" ],
+	"hosts": $HOSTS,
   "key": {
     "algo": "rsa",
     "size": 2048

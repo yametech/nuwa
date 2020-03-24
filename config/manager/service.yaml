@@ -9,7 +9,6 @@ spec:
   type: ClusterIP
   selector:
     control-plane: controller-manager
-    app: controller-manager
   ports:
   - port: 443
     targetPort: https
@@ -18,4 +17,4 @@ spec:
   - port: 9443
     targetPort: https
     protocol: TCP
-    name: https-manager-server    
+    name: https-manager-server
