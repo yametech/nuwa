@@ -23,5 +23,5 @@ webhooks:
         name:  nuwa-controller-manager-service
         namespace: nuwa-system
         path: /mutating-pods
-    failurePolicy: Fail
+    failurePolicy: Ignore  #  Fail/Ignore
     name: injector.nuwa.io
