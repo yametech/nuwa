@@ -10,11 +10,25 @@ spec:
   selector:
     control-plane: controller-manager
   ports:
-  - port: 443
-    targetPort: https
-    protocol: TCP
-    name: https-web-hook
   - port: 9443
     targetPort: https
     protocol: TCP
     name: https-manager-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: nuwa-webhook-service
+  namespace: system
+spec:
+  type: ClusterIP
+  selector:
+    control-plane: controller-manager
+  ports:
+    - port: 443
+      targetPort: https
+      protocol: TCP
+      name: https-web-hook
+

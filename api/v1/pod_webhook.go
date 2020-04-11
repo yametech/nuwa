@@ -56,13 +56,11 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 
 func filterInjectorPod(list []Injector, pod *corev1.Pod) ([]*Injector, error) {
 	var matchingIPs []*Injector
-
 	for _, sp := range list {
 		selector, err := metav1.LabelSelectorAsSelector(&sp.Spec.Selector)
 		if err != nil {
 			return nil, fmt.Errorf("label selector conversion failed: %v for selector: %v", sp.Spec.Selector, err)
 		}
-
 		// check if the pod labels match the selector
 		if !selector.Matches(labels.Set(pod.Labels)) {
 			continue

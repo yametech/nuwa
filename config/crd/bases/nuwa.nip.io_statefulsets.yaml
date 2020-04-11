@@ -11,26 +11,26 @@ spec:
   additionalPrinterColumns:
   - JSONPath: .spec.replicas
     description: The desired number of pods.
-    name: DESIRED
+    name: Replicas
     type: integer
   - JSONPath: .status.replicas
     description: The number of currently all pods.
-    name: CURRENT
+    name: Current
     type: integer
   - JSONPath: .status.updatedReplicas
     description: The number of pods updated.
-    name: UPDATED
+    name: Update
     type: integer
   - JSONPath: .status.readyReplicas
     description: The number of pods ready.
-    name: READY
+    name: Ready
     type: integer
   - JSONPath: .metadata.creationTimestamp
     description: CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
       across separate operations. Clients may not set this value. It is represented
       in RFC3339 form and is in UTC.
-    name: AGE
+    name: Age
     type: date
   group: nuwa.nip.io
   names:

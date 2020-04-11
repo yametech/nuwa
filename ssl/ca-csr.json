@@ -6,9 +6,9 @@
 },
 "names": [
 {
-  "C": "",
-  "ST": "",
-  "L": "",
+  "C": "CN",
+  "ST": "GuangZhou",
+  "L": "GuangZhou",
   "O": "k8s",
   "OU": "System"
 }

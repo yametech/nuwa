@@ -1,10 +1,10 @@
 # Build the manager binary
-FROM golang:1.13 as builder
+FROM golang:latest as builder
 
 WORKDIR /workspace
 # Env use china proxy
 ENV GO111MODULE=on
-ENV GOPROXY=https://goproxy.cn
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,https://mirrors.aliyun.com/goproxy/,https://athens.azurefd.net,direct
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -16,9 +16,6 @@ RUN go mod download
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
-
-# Build
-ENV GOPROXY=https://goproxy.cn,https://goproxy.io,https://mirrors.aliyun.com/goproxy/,https://athens.azurefd.net,direct
 # Alpine does not support dynamic library linking , so disable cgo compiled and add ldflags
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build --ldflags "-extldflags -static" -o manager main.go
 

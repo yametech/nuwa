@@ -61,7 +61,7 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
-		o.Development = false
+		o.Development = true
 	}))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(),

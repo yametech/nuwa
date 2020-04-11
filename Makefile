@@ -36,11 +36,12 @@ gen-ssl:
 	pushd ssl > /dev/null && ./gen-ssl.sh && popd > /dev/null
 	sh replace_ssl.sh
 
-
 # Development webhook
 devel-webhook: install
-	kustomize build development/webhook | kubectl delete -f -
-	kustomize build development/webhook | kubectl create -f -
+	kubectl apply -f development/webhook
+
+uninstall-devel-webhook:
+	kubectl delete -f development/webhook
 
 debug: fmt vet manifests
 	dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient
@@ -64,7 +65,6 @@ install: manifests
 # Uninstall CRDs from a cluster
 uninstall:
 	kustomize build config/crd | kubectl delete -f -
-
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests release

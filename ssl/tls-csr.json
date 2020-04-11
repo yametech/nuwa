@@ -3,7 +3,7 @@
 	"hosts": [
         "nuwa-controller-manager-service.nuwa-system.svc",
         "nuwa-controller-manager-service.svc.cluster.local",
-        "nuwa-sidecar-injector.svc.cluster.local",
+        "nuwa-webhook-service.svc.cluster.local",
         "nuwa-controller-manager-metrics-service.svc.cluster.local"
         ],
   "key": {

@@ -1,3 +1,22 @@
+if [ ! $NUWA_DEV_IP ]; then
+  HOSTS='[
+        "nuwa-controller-manager-service.nuwa-system.svc",
+        "nuwa-controller-manager-service.svc.cluster.local",
+        "nuwa-webhook-service.svc.cluster.local",
+        "nuwa-controller-manager-metrics-service.svc.cluster.local"
+        ]'
+else
+  # shellcheck disable=SC2016
+  HOSTS='[ "10.211.55.2" ]'
+fi
+
+if [ ! $COUNTRY ]; then
+COUNTRY=CN
+fi
+if [ ! $CITY ]; then
+CITY=GuangZhou
+fi
+
 cat >  ca-config.json <<EOF
 {
 "signing": {
@@ -37,26 +56,6 @@ cat >  ca-csr.json <<EOF
 ]
 }
 EOF
-
-
-if [ ! $NUWA_DEV_IP ]; then
-  HOSTS='[
-        "nuwa-controller-manager-service.nuwa-system.svc",
-        "nuwa-controller-manager-service.svc.cluster.local",
-        "nuwa-sidecar-injector.svc.cluster.local",
-        "nuwa-controller-manager-metrics-service.svc.cluster.local"
-        ]'
-else
-  # shellcheck disable=SC2016
-  HOSTS='[ "${NUWA_DEV_IP}" ]'
-fi
-
-if [ ! $COUNTRY ]; then
-COUNTRY=CN
-fi
-if [ ! $CITY ]; then
-CITY=GuangZhou
-fi
 
 cat > tls-csr.json <<EOF
 {

@@ -11,26 +11,26 @@ spec:
   additionalPrinterColumns:
   - JSONPath: .status.desired_replicas
     description: The desired number of pods.
-    name: DESIRED-REPLICAS
+    name: DesiredReplicas
     type: integer
   - JSONPath: .status.already_replicas
     description: The desired number of pods.
-    name: ALREADY-REPLICAS
+    name: AlreadyReplicas
     type: integer
-  - JSONPath: .status.desired_deployments
+  - JSONPath: .status.desired_deployment
     description: The desired number of deployments.
-    name: DESIRED-DEPLOYMENTS
+    name: DesiredDeployment
     type: integer
   - JSONPath: .status.already_deployment
     description: The already replicas number of deployments.
-    name: ALREADY-DEPLOYMENTS
+    name: AlreadyDeployment
     type: integer
   - JSONPath: .metadata.creationTimestamp
     description: CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
       across separate operations. Clients may not set this value. It is represented
       in RFC3339 form and is in UTC.
-    name: AGE
+    name: Age
     type: date
   group: nuwa.nip.io
   names:
@@ -6005,7 +6005,7 @@ spec:
             already_replicas:
               format: int32
               type: integer
-            desired_deployments:
+            desired_deployment:
               format: int32
               type: integer
             desired_replicas:
@@ -6017,7 +6017,7 @@ spec:
           required:
           - already_deployment
           - already_replicas
-          - desired_deployments
+          - desired_deployment
           - desired_replicas
           type: object
       type: object

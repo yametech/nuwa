@@ -4,3 +4,10 @@ export CA_PEM=`cat ssl/ca.pem | base64`
 sed -i "" "s/tls.crt\:.*$/tls.crt: ${TLS_CRT}/g" config/manager/secret.yaml
 sed -i "" "s/tls.key\:.*$/tls.key: ${TLS_KEY}/g" config/manager/secret.yaml
 sed -i "" "s/caBundle\:.*$/caBundle: ${TLS_CRT}/g" config/webhook/webhook.yaml
+
+if [ ! $NUWA_DEV_IP ]; then
+  echo "release mode"
+else
+sed -i "" "s/url\:.*$/url: https:\/\/${NUWA_DEV_IP}\:443\/mutating-pods/g" development/webhook/podwebhook.yml
+sed -i "" "s/caBundle\:.*$/caBundle: ${TLS_CRT}/g" development/webhook/podwebhook.yml
+fi

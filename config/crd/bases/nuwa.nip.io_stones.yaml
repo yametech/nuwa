@@ -11,18 +11,18 @@ spec:
   additionalPrinterColumns:
   - JSONPath: .status.replicas
     description: The desired number of pods.
-    name: REPLICAS
+    name: Replicas
     type: integer
   - JSONPath: .status.statefulset
     description: The desired number of statefulset.
-    name: STATEFULSET
+    name: Statefulset
     type: integer
   - JSONPath: .metadata.creationTimestamp
     description: CreationTimestamp is a timestamp representing the server time when
       this object was created. It is not guaranteed to be set in happens-before order
       across separate operations. Clients may not set this value. It is represented
       in RFC3339 form and is in UTC.
-    name: AGE
+    name: Age
     type: date
   group: nuwa.nip.io
   names:
