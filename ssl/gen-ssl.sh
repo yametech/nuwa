@@ -1,12 +1,14 @@
 if [ ! $NUWA_DEV_IP ]; then
   HOSTS='[
+        "nuwa-webhook-service",
+        "nuwa-webhook-service.nuwa-system",
         "nuwa-webhook-service.nuwa-system.svc",
-        "nuwa-controller-manager-metrics-service.nuwa-system.svc",
-        "webhook-service.nuwa-system.svc"
+        "nuwa-webhook-service.nuwa-system.svc:443",
+        "nuwa-controller-manager-metrics-service.nuwa-system.svc"
         ]'
 else
   # shellcheck disable=SC2016
-  HOSTS='[ "10.211.55.2" ]'
+  HOSTS='[ "$NUWA_DEV_IP" ]'
 fi
 
 if [ ! $COUNTRY ]; then

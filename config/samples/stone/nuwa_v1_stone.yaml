@@ -12,7 +12,7 @@ spec:
     spec:
       containers:
         - name: cn-0
-          image: nginx:alpine
+          image: nginx:latest
           imagePullPolicy: IfNotPresent
       tolerations:
         - key: "node.kubernetes.io/unreachable"
@@ -32,20 +32,20 @@ spec:
     type: NodePort
   coordinates:
     - group: A
-      replicas: 3
+      replicas: 1
       zoneset:
       - zone: A
         rack: W-01
+        host: node1
+      - zone: A
+        rack: S-02
         host: node2
-      - zone: A
-        rack: S-02
-        host: node3
     - group: B
-      replicas: 2
+      replicas: 0
       zoneset:
       - zone: B
         rack: W-01
-        host: node4
+        host: node3
       - zone: B
         rack: S-02
-        host: node5
+        host: node4
