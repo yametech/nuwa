@@ -63,6 +63,7 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}

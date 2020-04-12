@@ -18,6 +18,7 @@ spec:
       containers:
       - command:
         - /manager
+        - -ssl /ssl
         args:
         - --enable-leader-election
         image: controller:latest

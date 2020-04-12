@@ -37,7 +37,7 @@ gen-ssl:
 	sh replace_ssl.sh
 
 # Development webhook
-devel-webhook: install
+install-devel-webhook: install
 	kubectl apply -f development/webhook
 
 uninstall-devel-webhook:
@@ -55,15 +55,15 @@ manager: generate fmt vet
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: fmt vet manifests
-	go run ./main.go
+run:
+	go run ./main.go -ssl ${PWD}/ssl
 
 # Install CRDs into a cluster
-install: manifests
+install: manifests install-devel-webhook
 	kustomize build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall:
+uninstall: uninstall-devel-webhook
 	kustomize build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config

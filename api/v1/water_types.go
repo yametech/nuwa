@@ -51,10 +51,10 @@ type WaterSpec struct {
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	DesiredReplicas    int32 `json:"desired_replicas"`
-	AlreadyReplicas    int32 `json:"already_replicas"`
+	DesiredReplicas   int32 `json:"desired_replicas"`
+	AlreadyReplicas   int32 `json:"already_replicas"`
 	DesiredDeployment int32 `json:"desired_deployment"`
-	AlreadyDeployment  int32 `json:"already_deployment"`
+	AlreadyDeployment int32 `json:"already_deployment"`
 }
 
 /*
