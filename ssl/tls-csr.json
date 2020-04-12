@@ -1,10 +1,9 @@
 {
   "CN": "nuwa",
 	"hosts": [
-        "nuwa-controller-manager-service.nuwa-system.svc",
-        "nuwa-controller-manager-service.svc.cluster.local",
-        "nuwa-webhook-service.svc.cluster.local",
-        "nuwa-controller-manager-metrics-service.svc.cluster.local"
+        "nuwa-webhook-service.nuwa-system.svc",
+        "nuwa-controller-manager-metrics-service.nuwa-system.svc",
+        "webhook-service.nuwa-system.svc"
         ],
   "key": {
     "algo": "rsa",

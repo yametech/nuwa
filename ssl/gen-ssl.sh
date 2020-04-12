@@ -1,9 +1,8 @@
 if [ ! $NUWA_DEV_IP ]; then
   HOSTS='[
-        "nuwa-controller-manager-service.nuwa-system.svc",
-        "nuwa-controller-manager-service.svc.cluster.local",
-        "nuwa-webhook-service.svc.cluster.local",
-        "nuwa-controller-manager-metrics-service.svc.cluster.local"
+        "nuwa-webhook-service.nuwa-system.svc",
+        "nuwa-controller-manager-metrics-service.nuwa-system.svc",
+        "webhook-service.nuwa-system.svc"
         ]'
 else
   # shellcheck disable=SC2016
@@ -81,7 +80,7 @@ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes-Soulmate tls-csr.json | cfssljson -bare tls
 
 openssl x509  -noout -text -in tls.pem
-openssl x509  -noout -text -in tls-key.pem
+#openssl x509  -noout -text -in tls-key.pem
 openssl x509  -noout -text -in ca.pem
 
 mv tls-key.pem tls.key
