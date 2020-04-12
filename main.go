@@ -67,14 +67,14 @@ func main() {
 		o.Development = false
 	}))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(),
-		ctrl.Options{
-			Scheme:             scheme,
-			MetricsBindAddress: metricsAddr,
-			LeaderElection:     enableLeaderElection,
-			Port:               9443,
-			CertDir:            sslDir,
-		})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
+		Port:               9443,
+		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   "e931e6e2.nip.io",
+		CertDir:            sslDir,
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
