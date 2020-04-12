@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 
+	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"github.com/yametech/nuwa/controllers"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +35,7 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	sslDir   = "/ssl"
 )
 
 func init() {
@@ -44,10 +46,11 @@ func init() {
 }
 
 func podMutatingServe(pod *nuwav1.Pod) {
-	certFile := "/ssl/tls.crt"
-	ceyFile := "/ssl/tls.key"
+	certFile := fmt.Sprintf("%s%s", sslDir, "/tls.crt")
+	keyFile := fmt.Sprintf("%s%s", sslDir, "/tls.key")
+	pod.Log.Info("start injector webhook", "certFile", certFile, "keyFile", keyFile)
 	http.HandleFunc("/mutating-pods", pod.ServeMutatePods)
-	if err := http.ListenAndServeTLS(":443", certFile, ceyFile, nil); err != nil {
+	if err := http.ListenAndServeTLS(":443", certFile, keyFile, nil); err != nil {
 		panic(err)
 	}
 }
@@ -56,22 +59,22 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&sslDir, "ssl", "/ssl", "ssl directory")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
 		o.Development = false
 	}))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(),
-		ctrl.Options{
-			Scheme:             scheme,
-			MetricsBindAddress: metricsAddr,
-			LeaderElection:     enableLeaderElection,
-			Port:               9443,
-			CertDir:            "/ssl/",
-		})
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
+		Port:               9443,
+		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   "e931e6e2.nip.io",
+		CertDir:            sslDir,
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

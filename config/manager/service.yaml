@@ -3,7 +3,7 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
-  name: controller-manager-service
+  name: webhook-service
   namespace: system
 spec:
   type: ClusterIP
@@ -11,10 +11,5 @@ spec:
     control-plane: controller-manager
   ports:
   - port: 443
-    targetPort: https
-    protocol: TCP
-    name: https-web-hook
-  - port: 9443
-    targetPort: https
-    protocol: TCP
-    name: https-manager-server
+    targetPort: 443
+

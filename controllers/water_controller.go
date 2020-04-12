@@ -56,42 +56,40 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}()
 
 	instance := &nuwav1.Water{}
-	if err := r.Client.Get(ctx, objectKey, instance); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
+	err := r.Client.Get(ctx, objectKey, instance)
+	if errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
 	}
-	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	for i := range coordinators {
 		local := coordinators[i]
-		r.Log.Info("Reconcile coordinate", "coordinate", local.Name)
 		size := int32(1)
 		switch instance.Spec.Strategy {
 		case nuwav1.Alpha:
 			if local.Index > 0 {
 				continue
 			}
-			r.Log.Info("Water deploy strategy is Alpha")
 		case nuwav1.Beta:
-			r.Log.Info("Water deploy strategy is Beta")
 		case nuwav1.Release:
 			size = local.Coordinate.Replicas
-			r.Log.Info("Water deploy strategy is Release")
 		}
+		r.Log.Info("Water deploy strategy", "mode", instance.Spec.Strategy)
 		objKey := client.ObjectKey{
 			Namespace: req.Namespace,
 			Name:      deploymentName(local.Name, instance),
 		}
-		if err := r.updateDeployment(ctx, objKey, instance, &size, local.NodeAffinity); err != nil {
+		err = r.updateDeployment(ctx, objKey, instance, &size, local.NodeAffinity)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -129,9 +127,14 @@ func (r *WaterReconciler) annotationWater(ctx context.Context, instance *nuwav1.
 
 func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Water) error {
 	serviceSpec := instance.Spec.Service.DeepCopy()
-	serviceSpec.Selector = map[string]string{"app": instance.Name}
+	serviceSpec.Selector = map[string]string{
+		"app": instance.Name,
+	}
 	service := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            instance.Name,
 			Namespace:       instance.Namespace,
@@ -139,15 +142,14 @@ func (r *WaterReconciler) createService(ctx context.Context, instance *nuwav1.Wa
 		},
 		Spec: *serviceSpec,
 	}
-
-	if err := r.Client.Get(ctx, ctx.Value("request").(ctrl.Request).NamespacedName, service); err != nil {
-		if errors.IsNotFound(err) {
-			if err = r.Client.Create(ctx, service); err != nil {
-				return err
-			}
-			r.Log.Info("Create service", "service", instance.Name)
-			return nil
-		}
+	key := ctx.Value("request").(ctrl.Request).NamespacedName
+	err := r.Client.Get(ctx, key, service)
+	if errors.IsNotFound(err) {
+		return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return r.Client.Create(ctx, service)
+		})
+	}
+	if err != nil {
 		return error_stack.WithStack(err)
 	}
 
@@ -165,91 +167,102 @@ func (r *WaterReconciler) updateDeployment(
 	selector := &metav1.LabelSelector{MatchLabels: labels}
 	newTemplate := instance.Spec.Template.DeepCopy()
 	if nodeAffinity != nil {
-		newTemplate.Spec.Affinity = &corev1.Affinity{
-			NodeAffinity: nodeAffinity,
-		}
+		newTemplate.Spec.Affinity =
+			&corev1.Affinity{
+				NodeAffinity: nodeAffinity,
+			}
 	}
-
 	newDeployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            deployName.Name,
 			Namespace:       deployName.Namespace,
 			OwnerReferences: ownerReference(instance, "Water"),
 		},
-
 		Spec: appsv1.DeploymentSpec{
 			Replicas: size,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       newTemplate.Spec,
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: newTemplate.Spec,
 			},
 			Selector: selector,
 		},
 	}
-
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		oldDeployment := &appsv1.Deployment{}
-		if err := r.Client.Get(ctx, deployName, oldDeployment); err != nil {
-			if errors.IsNotFound(err) {
-				if err := r.Client.Create(ctx, newDeployment); err != nil {
-					return err
-				}
-				// Set Deployment instance as the owner and controller
-				if err := controllerutil.SetControllerReference(instance, newDeployment, r.Scheme); err != nil {
-					return err
-				}
-				return nil
+		err := r.Client.Get(ctx, deployName, oldDeployment)
+		if errors.IsNotFound(err) {
+			err := r.Client.Create(ctx, newDeployment)
+			if err != nil {
+				return error_stack.WithStack(err)
 			}
+			// Set Deployment instance as the owner and controller
+			err = controllerutil.SetControllerReference(
+				instance,
+				newDeployment,
+				r.Scheme,
+			)
+			if err != nil {
+				return error_stack.WithStack(err)
+			}
+			return nil
+		}
+
+		if err != nil {
 			return error_stack.WithStack(err)
 		}
 
-		if *oldDeployment.Spec.Replicas != *size {
-			*oldDeployment.Spec.Replicas = *size
-			if err := r.Client.Update(ctx, oldDeployment); err != nil {
-				return error_stack.WithStack(err)
-			}
+		if *oldDeployment.Spec.Replicas == *size {
+			return nil
 		}
+		*oldDeployment.Spec.Replicas = *size
+		err = r.Client.Update(ctx, oldDeployment)
+		if err != nil {
+			return error_stack.WithStack(err)
+		}
+
 		return nil
 	})
 }
 
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
-	old := &nuwav1.Water{}
-	objKey := client.ObjectKey{Namespace: instance.Namespace, Name: instance.Name}
-	if err := r.Client.Get(ctx, objKey, old); err != nil {
+	expectStatus := nuwav1.WaterStatus{}
+	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
+	if err != nil {
+		return error_stack.WithStack(err)
+	}
+	expectStatus.DesiredDeployment = int32(len(coordinators))
+	for i := range coordinators {
+		local := coordinators[i]
+		expectStatus.DesiredReplicas += local.Coordinate.Replicas
+		objKey := client.ObjectKey{
+			Namespace: instance.Namespace,
+			Name:      deploymentName(local.Name, instance),
+		}
+		tmp := &appsv1.Deployment{}
+		err := r.Client.Get(ctx, objKey, tmp)
 		if errors.IsNotFound(err) {
 			return nil
 		}
-		return err
+		if err != nil {
+			return error_stack.WithStack(err)
+		}
+		expectStatus.AlreadyReplicas += *tmp.Spec.Replicas
+		expectStatus.AlreadyDeployment++
 	}
 
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		expectStatus := nuwav1.WaterStatus{}
-		coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
-		if err != nil {
-			return err
+		if reflect.DeepEqual(instance.Status, expectStatus) {
+			return nil
 		}
-		expectStatus.DesiredDeployments = int32(len(coordinators))
-		for i := range coordinators {
-			local := coordinators[i]
-			expectStatus.DesiredReplicas += local.Coordinate.Replicas
-			objKey := client.ObjectKey{Namespace: instance.Namespace, Name: deploymentName(local.Name, instance)}
-			tmp := &appsv1.Deployment{}
-			if err := r.Client.Get(ctx, objKey, tmp); err != nil {
-				if errors.IsNotFound(err) {
-					return nil
-				}
-				return err
-			}
-			expectStatus.AlreadyReplicas += *tmp.Spec.Replicas
-			expectStatus.AlreadyDeployment++
-		}
-		if !reflect.DeepEqual(old.Status, expectStatus) {
-			old.Status = expectStatus
-			if err := r.Client.Status().Update(ctx, old); err != nil {
-				return err
-			}
+		instance.Status = expectStatus
+		if err := r.Client.Status().Update(ctx, instance); err != nil {
+			return error_stack.WithStack(err)
 		}
 		return nil
 	})
@@ -266,33 +279,36 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 			return nil
 		}
 		if err := json.Unmarshal([]byte(bs), &tmpWaterSpec); err != nil {
-			return err
+			return error_stack.WithStack(err)
 		}
 
 		tmp1 := tmpWaterSpec.Coordinates.DeepCopy()
 		tmp2 := instance.Spec.Coordinates.DeepCopy()
 		diffSlice := nuwav1.Difference(tmp1, tmp2)
-		if len(diffSlice) > 0 {
-			for _, c := range tmp1 {
-				if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
-					coorName, err := coordinateName(&c)
-					if err != nil {
-						return err
-					}
-					objKey := client.ObjectKey{
-						Namespace: instance.Namespace,
-						Name:      deploymentName(coorName, instance),
-					}
-					deployment := &appsv1.Deployment{}
-					if err := r.Client.Get(ctx, objKey, deployment); err != nil {
-						if errors.IsNotFound(err) {
-							continue
-						}
-						return err
-					}
-					if err := r.Client.Delete(ctx, deployment); err != nil {
-						return err
-					}
+		if len(diffSlice) == 0 {
+			return nil
+		}
+		for _, c := range tmp1 {
+			if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
+				coordinateName, err := coordinateName(&c)
+				if err != nil {
+					return error_stack.WithStack(err)
+				}
+				objKey := client.ObjectKey{
+					Namespace: instance.Namespace,
+					Name:      deploymentName(coordinateName, instance),
+				}
+				deployment := &appsv1.Deployment{}
+				err = r.Client.Get(ctx, objKey, deployment)
+				if errors.IsNotFound(err) {
+					continue
+				}
+				if err != nil {
+					return error_stack.WithStack(err)
+				}
+				err = r.Client.Delete(ctx, deployment)
+				if err != nil {
+					return error_stack.WithStack(err)
 				}
 			}
 		}

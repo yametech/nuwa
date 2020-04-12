@@ -56,13 +56,11 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 
 func filterInjectorPod(list []Injector, pod *corev1.Pod) ([]*Injector, error) {
 	var matchingIPs []*Injector
-
 	for _, sp := range list {
 		selector, err := metav1.LabelSelectorAsSelector(&sp.Spec.Selector)
 		if err != nil {
 			return nil, fmt.Errorf("label selector conversion failed: %v for selector: %v", sp.Spec.Selector, err)
 		}
-
 		// check if the pod labels match the selector
 		if !selector.Matches(labels.Set(pod.Labels)) {
 			continue
@@ -91,7 +89,6 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 		p.Log.Error(fmt.Errorf("expect resource to be %s", podResource), "")
 		return nil
 	}
-
 	raw := ar.Request.Object.Raw
 	pod := corev1.Pod{}
 	deserializer := serializer.NewCodecFactory(
@@ -104,7 +101,6 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	podCopy := pod.DeepCopy()
-	p.Log.Info("Examining", "pod", pod.GetName())
 
 	// Ignore if exclusion annotation is present
 	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {

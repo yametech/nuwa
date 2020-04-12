@@ -17,11 +17,9 @@ limitations under the License.
 package controllers
 
 import (
-	"path/filepath"
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"path/filepath"
 
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -40,13 +38,13 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Controller Suite",
-		[]Reporter{envtest.NewlineReporter{}})
-}
+//func TestAPIs(t *testing.T) {
+//	RegisterFailHandler(Fail)
+//
+//	RunSpecsWithDefaultAndCustomReporters(t,
+//		"Controller Suite",
+//		[]Reporter{envtest.NewlineReporter{}})
+//}
 
 var _ = BeforeSuite(func(done Done) {
 	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))

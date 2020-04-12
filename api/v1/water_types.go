@@ -51,10 +51,10 @@ type WaterSpec struct {
 type WaterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	DesiredReplicas    int32 `json:"desired_replicas"`
-	AlreadyReplicas    int32 `json:"already_replicas"`
-	DesiredDeployments int32 `json:"desired_deployments"`
-	AlreadyDeployment  int32 `json:"already_deployment"`
+	DesiredReplicas   int32 `json:"desired_replicas"`
+	AlreadyReplicas   int32 `json:"already_replicas"`
+	DesiredDeployment int32 `json:"desired_deployment"`
+	AlreadyDeployment int32 `json:"already_deployment"`
 }
 
 /*
@@ -67,11 +67,11 @@ type WaterStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nuwawts
 // +kubebuilder:subresource:scale:specpath=".spec.replicas",statuspath=".status.replicas"
-// +kubebuilder:printcolumn:name="DESIRED-REPLICAS",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
-// +kubebuilder:printcolumn:name="ALREADY-REPLICAS",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
-// +kubebuilder:printcolumn:name="DESIRED-DEPLOYMENTS",type="integer",JSONPath=".status.desired_deployments",description="The desired number of deployments."
-// +kubebuilder:printcolumn:name="ALREADY-DEPLOYMENTS",type="integer",JSONPath=".status.already_deployment",description="The already replicas number of deployments."
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
+// +kubebuilder:printcolumn:name="DesiredReplicas",type="integer",JSONPath=".status.desired_replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="AlreadyReplicas",type="integer",JSONPath=".status.already_replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="DesiredDeployment",type="integer",JSONPath=".status.desired_deployment",description="The desired number of deployments."
+// +kubebuilder:printcolumn:name="AlreadyDeployment",type="integer",JSONPath=".status.already_deployment",description="The already replicas number of deployments."
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Water struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

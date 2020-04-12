@@ -36,11 +36,12 @@ gen-ssl:
 	pushd ssl > /dev/null && ./gen-ssl.sh && popd > /dev/null
 	sh replace_ssl.sh
 
-
 # Development webhook
-devel-webhook: install
-	kustomize build development/webhook | kubectl delete -f -
-	kustomize build development/webhook | kubectl create -f -
+install-devel-webhook: install
+	kubectl apply -f development/webhook
+
+uninstall-devel-webhook:
+	kubectl delete -f development/webhook
 
 debug: fmt vet manifests
 	dlv debug --headless --listen=:2345 --api-version=2 --accept-multiclient
@@ -54,17 +55,16 @@ manager: generate fmt vet
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: fmt vet manifests
-	go run ./main.go
+run:
+	go run ./main.go -ssl ${PWD}/ssl
 
 # Install CRDs into a cluster
-install: manifests
+install: manifests install-devel-webhook
 	kustomize build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall:
+uninstall: uninstall-devel-webhook
 	kustomize build config/crd | kubectl delete -f -
-
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests release

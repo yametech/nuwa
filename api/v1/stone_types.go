@@ -78,9 +78,9 @@ type StoneStatus struct {
 // Water is the Schema for the waters API
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nuwaste
-// +kubebuilder:printcolumn:name="REPLICAS",type="integer",JSONPath=".status.replicas",description="The desired number of pods."
-// +kubebuilder:printcolumn:name="STATEFULSET",type="integer",JSONPath=".status.statefulset",description="The desired number of statefulset."
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
+// +kubebuilder:printcolumn:name="Replicas",type="integer",JSONPath=".status.replicas",description="The desired number of pods."
+// +kubebuilder:printcolumn:name="Statefulset",type="integer",JSONPath=".status.statefulset",description="The desired number of statefulset."
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC."
 type Stone struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
