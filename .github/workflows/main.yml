@@ -31,6 +31,6 @@ jobs:
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v1
       - name: install code-generate kustomize
-        run: make controller-gen && make kustomize
+        run: go get github.com/kubernetes-sigs/kustomize && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
       - name: test build
         run: make all
