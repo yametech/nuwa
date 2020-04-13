@@ -74,6 +74,10 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 		}
 		if instance.ObjectMeta.OwnerReferences == nil || len(instance.ObjectMeta.OwnerReferences) == 0 {
+			// cross-namespace owner references are disallowed (fix)
+			if instance.GetNamespace() != water.GetNamespace() {
+				return ctrl.Result{}, fmt.Errorf("cross-namespace owner references are disallowed")
+			}
 			instance.ObjectMeta.OwnerReferences = append(instance.ObjectMeta.OwnerReferences, ownerReference(water, "Water")...)
 			if err := controllerutil.SetControllerReference(instance, water, r.Scheme); err != nil {
 				return ctrl.Result{}, err
@@ -88,6 +92,10 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			}
 		}
 		if instance.ObjectMeta.OwnerReferences == nil || len(instance.ObjectMeta.OwnerReferences) == 0 {
+			// cross-namespace owner references are disallowed (fix)
+			if instance.GetNamespace() != stone.GetNamespace() {
+				return ctrl.Result{}, fmt.Errorf("cross-namespace owner references are disallowed")
+			}
 			instance.ObjectMeta.OwnerReferences = append(instance.ObjectMeta.OwnerReferences, ownerReference(stone, "Stone")...)
 			if err := controllerutil.SetControllerReference(instance, stone, r.Scheme); err != nil {
 				return ctrl.Result{}, err
