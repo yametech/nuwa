@@ -46,16 +46,16 @@ spec:
       zoneset:
       - zone: A
         rack: W-01
-        host: node2
+        host: node1
       - zone: A
         rack: S-02
-        host: node3
+        host: node2
     - group: B
       replicas: 2
       zoneset:
       - zone: B
         rack: W-01
-        host: node4
+        host: node3
       - zone: B
         rack: S-02
-        host: node5
+        host: node4
