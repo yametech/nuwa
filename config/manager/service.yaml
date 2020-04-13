@@ -10,6 +10,6 @@ spec:
   selector:
     control-plane: controller-manager
   ports:
-  - port: 443
-    targetPort: 443
+  - port: 1443
+    targetPort: 1443
 

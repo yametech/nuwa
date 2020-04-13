@@ -113,7 +113,7 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 		if err := r.Client.Get(ctx, key, sts); err != nil {
 			if errors.IsNotFound(err) {
 				// structure new statefulset
-				labels := map[string]string{"app": statefulSetName}
+				labels := map[string]string{"app": ste.GetName()}
 				selector := &metav1.LabelSelector{MatchLabels: labels}
 				fakeSeriveName := "fake"
 				zonesetAnnotations, _ := json.Marshal(cgs[i].Zoneset)
