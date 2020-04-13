@@ -3,7 +3,6 @@ if [ ! $NUWA_DEV_IP ]; then
         "nuwa-webhook-service",
         "nuwa-webhook-service.nuwa-system",
         "nuwa-webhook-service.nuwa-system.svc",
-        "nuwa-webhook-service.nuwa-system.svc:443",
         "nuwa-controller-manager-metrics-service.nuwa-system.svc"
         ]'
 else

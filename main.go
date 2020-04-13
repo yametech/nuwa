@@ -88,6 +88,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Water")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.StoneReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Stone"),
@@ -96,6 +97,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Stone")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.InjectorReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Injector"),
@@ -104,6 +106,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Injector")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.StatefulSetReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("StatefulSet"),
@@ -112,6 +115,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "StatefulSet")
 		os.Exit(1)
 	}
+
 	// +kubebuilder:scaffold:builder
 	go podMutatingServe(&nuwav1.Pod{Client: mgr.GetClient(), Log: ctrl.Log.WithName("webhook").WithName("pod webhook")})
 

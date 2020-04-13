@@ -102,6 +102,7 @@ func (p *Pod) mutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse 
 	reviewResponse.Allowed = true
 	podCopy := pod.DeepCopy()
 
+	p.Log.Info("mutate pod", "namespace", pod.GetNamespace(), "pod name", pod.GetName())
 	// Ignore if exclusion annotation is present
 	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {
 		if _, isMirrorPod := podAnnotations[corev1.MirrorPodAnnotationKey]; isMirrorPod {
