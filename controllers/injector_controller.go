@@ -93,9 +93,7 @@ func (r *InjectorReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				return ctrl.Result{}, err
 			}
 		}
-
 	default:
-
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(&instance.Spec.Selector)

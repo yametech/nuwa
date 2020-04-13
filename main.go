@@ -50,7 +50,7 @@ func podMutatingServe(pod *nuwav1.Pod) {
 	keyFile := fmt.Sprintf("%s%s", sslDir, "/tls.key")
 	pod.Log.Info("start injector webhook", "certFile", certFile, "keyFile", keyFile)
 	http.HandleFunc("/mutating-pods", pod.ServeMutatePods)
-	if err := http.ListenAndServeTLS(":443", certFile, keyFile, nil); err != nil {
+	if err := http.ListenAndServeTLS(":1443", certFile, keyFile, nil); err != nil {
 		panic(err)
 	}
 }
