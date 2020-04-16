@@ -22,7 +22,7 @@ cat >  ca-config.json <<EOF
 {
 "signing": {
 "default": {
-  "expiry": "8760h"
+  "expiry": "175200h"
 },
 "profiles": {
   "kubernetes-Soulmate": {
@@ -32,7 +32,7 @@ cat >  ca-config.json <<EOF
         "server auth",
         "client auth"
     ],
-    "expiry": "8760h"
+    "expiry": "175200h"
   }
 }
 }

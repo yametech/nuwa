@@ -14,6 +14,9 @@ spec:
         - name: cn-0
           image: nginx:alpine
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: www
+              mountPath: "/mnt"
       tolerations:
         - key: "node.kubernetes.io/unreachable"
           operator: "Exists"
@@ -32,7 +35,7 @@ spec:
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
-            storage: 10Gi
+            storage: 200Mi
   service:
     ports:
       - name: default-web-port
@@ -42,20 +45,8 @@ spec:
     type: NodePort
   coordinates:
     - group: A
-      replicas: 3
+      replicas: 1
       zoneset:
       - zone: A
         rack: W-01
         host: node1
-      - zone: A
-        rack: S-02
-        host: node2
-    - group: B
-      replicas: 2
-      zoneset:
-      - zone: B
-        rack: W-01
-        host: node3
-      - zone: B
-        rack: S-02
-        host: node4
