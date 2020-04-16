@@ -20,6 +20,27 @@
 * Dynamic injection.
 
 
+## Installation requirements
+
+* Requires kubernetes cluster version greater than or equal to 1.15.x
+
+
+## Label the machine
+
+```shell script
+kubectl  label nodes node2 nuwa.io/zone=A nuwa.io/rack=W-01 nuwa.io/host=node1 --overwrite
+kubectl  label nodes node3 nuwa.io/zone=A nuwa.io/rack=S-02 nuwa.io/host=node2 --overwrite
+kubectl  label nodes node4 nuwa.io/zone=B nuwa.io/rack=W-01 nuwa.io/host=node3 --overwrite
+kubectl  label nodes node5 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node4 --overwrite
+
+```
+
+
+ ## Install Nuwa CRD resource
+
+ `
+   kubectl apply -f https://github.com/yametech/nuwa/releases/download/v1.0.0/release.yaml
+ `
 
 
 ## Water Resource
@@ -68,19 +89,19 @@ spec:
   coordinates:
     - zone: A
       rack: W-01
-      host: node2
+      host: node1
       replicas: 1
     - zone: A
       rack: S-02
-      host: node3
+      host: node2
       replicas: 1
     - zone: B
       rack: W-01
-      host: node4
+      host: node3
       replicas: 1
     - zone: B
       rack: S-02
-      host: node5
+      host: node4
       replicas: 1
 
 ```
@@ -135,19 +156,19 @@ spec:
       zoneset:
       - zone: A
         rack: W-01
-        host: node2
+        host: node1
       - zone: A
         rack: S-02
-        host: node3
+        host: node2
     - group: B
       replicas: 2
       zoneset:
       - zone: B
         rack: W-01
-        host: node4
+        host: node3
       - zone: B
         rack: S-02
-        host: node5
+        host: node4
 ```
 
 ## Injector resource
@@ -185,19 +206,19 @@ spec:
   coordinates:
     - zone: A
       rack: W-01
-      host: node2
+      host: node1
       replicas: 2
     - zone: A
       rack: S-02
-      host: node3
+      host: node2
       replicas: 0
     - zone: B
       rack: W-01
-      host: node4
+      host: node3
       replicas: 0
     - zone: B
       rack: S-02
-      host: node5
+      host: node4
       replicas: 0
 ---
 
@@ -238,25 +259,3 @@ spec:
 ```
 
 
-## Installation requirements
-
-* Requires kubernetes cluster version greater than or equal to 1.15.x
-
-
-## Label the machine
-
-```shell script
-
-kubectl  label nodes node2 nuwa.io/zone=A nuwa.io/rack=W-01 nuwa.io/host=node2 --overwrite
-kubectl  label nodes node3 nuwa.io/zone=A nuwa.io/rack=S-02 nuwa.io/host=node3 --overwrite
-kubectl  label nodes node4 nuwa.io/zone=B nuwa.io/rack=W-01 nuwa.io/host=node4 --overwrite
-kubectl  label nodes node5 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node5 --overwrite
-
-```
-
-
- ## Install Nuwa CRD resource
-
- `
-   kubectl apply -f https://github.com/yametech/nuwa/releases/download/v1.0.0/release.yaml
- `

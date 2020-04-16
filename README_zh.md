@@ -19,6 +19,28 @@
 * 支持动态注入
 
 
+## 安装需求
+
+* 需要 kubernetes 集群大于或等于1.15.x的版本
+
+
+
+ ## 安装女娲CRD
+
+ `
+   kubectl apply -f https://github.com/yametech/nuwa/releases/download/v1.0.0/release.yaml
+ `
+ 
+## 给机器打标签[分别为机房区域,机架,节点 作为谓词查询条件实现控制资源在可靠的机器或者容灾]
+
+```shell script
+
+kubectl  label nodes node1 nuwa.io/zone=A nuwa.io/rack=W-01 nuwa.io/host=node2 --overwrite
+kubectl  label nodes node2 nuwa.io/zone=A nuwa.io/rack=S-02 nuwa.io/host=node3 --overwrite
+kubectl  label nodes node3 nuwa.io/zone=B nuwa.io/rack=W-01 nuwa.io/host=node4 --overwrite
+kubectl  label nodes node4 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node5 --overwrite
+
+```
 
 
 ## Water资源
@@ -67,19 +89,19 @@ spec:
   coordinates:
     - zone: A
       rack: W-01
-      host: node2
+      host: node1
       replicas: 1
     - zone: A
       rack: S-02
-      host: node3
+      host: node2
       replicas: 1
     - zone: B
       rack: W-01
-      host: node4
+      host: node3
       replicas: 1
     - zone: B
       rack: S-02
-      host: node5
+      host: node4
       replicas: 1
 
 ```
@@ -133,19 +155,19 @@ spec:
       zoneset:
       - zone: A
         rack: W-01
-        host: node2
+        host: node1
       - zone: A
         rack: S-02
-        host: node3
+        host: node2
     - group: B
       replicas: 2
       zoneset:
       - zone: B
         rack: W-01
-        host: node4
+        host: node3
       - zone: B
         rack: S-02
-        host: node5
+        host: node4
 ```
 
 ## Injector资源
@@ -154,7 +176,6 @@ spec:
 
 
 ### 配合Water资源和Stone资源的使用案例
-
 
  ```shell script
 apiVersion: nuwa.nip.io/v1
@@ -183,19 +204,19 @@ spec:
   coordinates:
     - zone: A
       rack: W-01
-      host: node2
+      host: node1
       replicas: 2
     - zone: A
       rack: S-02
-      host: node3
+      host: node2
       replicas: 0
     - zone: B
       rack: W-01
-      host: node4
+      host: node3
       replicas: 0
     - zone: B
       rack: S-02
-      host: node5
+      host: node4
       replicas: 0
 ---
 
@@ -235,26 +256,3 @@ spec:
       emptyDir: {}
 ```
 
-
-## 安装需求
-
-* 需要 kubernetes 集群大于或等于1.15.x的版本
-
-
-## 给机器打标签
-
-```shell script
-
-kubectl  label nodes node2 nuwa.io/zone=A nuwa.io/rack=W-01 nuwa.io/host=node2 --overwrite
-kubectl  label nodes node3 nuwa.io/zone=A nuwa.io/rack=S-02 nuwa.io/host=node3 --overwrite
-kubectl  label nodes node4 nuwa.io/zone=B nuwa.io/rack=W-01 nuwa.io/host=node4 --overwrite
-kubectl  label nodes node5 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node5 --overwrite
-
-```
-
-
- ## 安装女娲CRD
-
- `
-   kubectl apply -f https://github.com/yametech/nuwa/releases/download/v1.0.0/release.yaml
- `
