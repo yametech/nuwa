@@ -256,5 +256,5 @@ kubectl  label nodes node5 nuwa.io/zone=B nuwa.io/rack=S-02 nuwa.io/host=node5 -
  ## 安装女娲CRD
 
  `
-   kubectl apply -f https://github.com/yametech/nuwa/releases/download/${VERSION}/nuwa.yaml
+   kubectl apply -f https://github.com/yametech/nuwa/releases/download/v1.0.0/release.yaml
  `
