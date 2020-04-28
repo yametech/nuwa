@@ -183,7 +183,7 @@ func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, st
 			if errors.IsNotFound(err) {
 				// Create service
 				serviceSpec := ste.Spec.Service.DeepCopy()
-				serviceSpec.Selector = map[string]string{"app": sts.Name}
+				serviceSpec.Selector = map[string]string{"app": ste.Name}
 
 				service := &corev1.Service{
 					TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
