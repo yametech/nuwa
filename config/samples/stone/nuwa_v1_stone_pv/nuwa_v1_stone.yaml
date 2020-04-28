@@ -1,18 +1,18 @@
 apiVersion: nuwa.nip.io/v1
 kind: Stone
 metadata:
-  name: stone-example
+  name: stone-example-pv
 spec:
   strategy: Release
   template:
     metadata:
       name: sample
       labels:
-        app: stone-example
+        app: stone-example-pv
     spec:
       containers:
         - name: cn-0
-          image: nginx:alpine
+          image: nginx:latest
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - name: www
@@ -45,8 +45,11 @@ spec:
     type: NodePort
   coordinates:
     - group: A
-      replicas: 1
+      replicas: 10
       zoneset:
       - zone: A
+        rack: S-02
+        host: node2
+      - zone: B
         rack: W-01
-        host: node1
+        host: node3

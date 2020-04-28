@@ -46,7 +46,7 @@ spec:
         - name: config-map
           mountPath: /mnt/config-map
       - name: clone-mysql
-        image: gcr.io/google-samples/xtrabackup:1.0
+        image: yametech/xtrabackup:1.0
         command:
         - bash
         - "-c"
