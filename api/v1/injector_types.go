@@ -29,7 +29,6 @@ import (
 type InjectorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
 	PreContainers []corev1.Container `json:"preContainers,omitempty"`
 
 	PostContainers []corev1.Container `json:"postContainers,omitempty"`
@@ -65,7 +64,6 @@ type Injector struct {
 }
 
 // +kubebuilder:object:root=true
-
 // InjectorList contains a list of Injector
 type InjectorList struct {
 	metav1.TypeMeta `json:",inline"`

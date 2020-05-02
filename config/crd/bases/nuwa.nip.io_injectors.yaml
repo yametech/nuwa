@@ -1065,6 +1065,8 @@ spec:
                 type: object
               type: array
             preContainers:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "make" to regenerate code after modifying this file'
               items:
                 description: A single application container that you want to run within
                   a pod.

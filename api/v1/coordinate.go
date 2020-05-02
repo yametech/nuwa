@@ -16,13 +16,12 @@ limitations under the License.
 package v1
 
 // Coordinate defines the desired identity pod of node
-// example
-// coordinate:
 
 const (
-	NuwaZoneFlag = "nuwa.io/zone"
-	NuwaRackFlag = "nuwa.io/rack"
-	NuwaHostFlag = "nuwa.io/host"
+	NuwaZoneFlag  = "nuwa.kubernetes.io/zone"
+	NuwaRackFlag  = "nuwa.kubernetes.io/rack"
+	NuwaHostFlag  = "nuwa.kubernetes.io/host"
+	NuwaLimitFlag = "nuwa.kubernetes.io/default_resource_limit"
 )
 
 // +kubebuilder:object:root=false

@@ -7,14 +7,14 @@ spec:
     matchLabels:
       app: mysql
   serviceName: mysql
-  replicas: 3
+  replicas: 6
   template:
     metadata:
       labels:
         app: mysql
       # add nuwa label nodes
       annotations:
-        coordinates: '[{"zone":"A","rack":"W-01","host":"node1","replicas":1},{"zone":"A","rack":"S-02","host":"node2","replicas":1},{"zone":"B","rack":"W-01","host":"node3","replicas":1},{"zone":"B","rack":"S-02","host":"node4","replicas":1}]'
+        coordinates: '[{"zone":"A","rack":"S-02","host":"node2","replicas":1},{"zone":"B","rack":"W-01","host":"node3","replicas":1},{"zone":"B","rack":"S-02","host":"node4","replicas":1}]'
     spec:
       # add readinessGates
       readinessGates:
@@ -101,7 +101,7 @@ spec:
           periodSeconds: 2
           timeoutSeconds: 1
       - name: xtrabackup
-        image: gcr.io/google-samples/xtrabackup:1.0
+        image: yametech/xtrabackup:1.0
         ports:
         - name: xtrabackup
           containerPort: 3307

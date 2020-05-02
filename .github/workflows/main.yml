@@ -28,9 +28,9 @@ jobs:
           - os: macOS-latest
             target_os: darwin
     steps:
-      - name: Set up Go ${{ env.GOVER }}
-        uses: actions/setup-go@v1
-      - name: install code-generate kustomize
-        run: go get github.com/kubernetes-sigs/kustomize && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
+#      - name: Set up Go ${{ env.GOVER }}
+#        uses: actions/setup-go@v1
+#      - name: install code-generate kustomize
+#        run: go get github.com/kubernetes-sigs/kustomize && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
       - name: test build
-        run: make all
+        run: make build
