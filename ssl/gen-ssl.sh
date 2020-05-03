@@ -1,10 +1,10 @@
 if [ ! $nuwa_dev_ip ]; then
   HOSTS='[
-        "nuwa-webhook-service",
-        "nuwa-webhook-service.kube-system",
-        "nuwa-webhook-service.kube-system.svc",
-        "nuwa-webhook-service.kube-system.svc:1443",
-        "nuwa-controller-manager-metrics-service.kube-system.svc"
+        "kube-webhook-service",
+        "kube-webhook-service.kube-system",
+        "kube-webhook-service.kube-system.svc",
+        "kube-webhook-service.kube-system.svc:1443",
+        "kube-controller-manager-metrics-service.kube-system.svc"
         ]'
 else
   # shellcheck disable=SC2016
