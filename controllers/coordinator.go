@@ -15,16 +15,11 @@ limitations under the License.
 */
 package controllers
 
-import "C"
 import (
 	"fmt"
 	nuwav1 "github.com/yametech/nuwa/api/v1"
 	corev1 "k8s.io/api/core/v1"
 )
-
-type CoordinateErr error
-
-var ErrNeedAtLeastZone CoordinateErr = fmt.Errorf("%s", "coordinate need to specify at least zone")
 
 type coordinator struct {
 	Index        int
