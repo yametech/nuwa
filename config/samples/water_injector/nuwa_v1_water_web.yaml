@@ -25,4 +25,4 @@ spec:
     - zone: A
       rack: W-01
       host: node1
-      replicas: 0
+      replicas: 1

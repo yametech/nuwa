@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: nuwa-controller
   namespace: system
   labels:
-    control-plane: controller-manager
+    control-plane: nuwa-controller
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: nuwa-controller
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        control-plane: nuwa-controller
     spec:
       containers:
       - command:
@@ -36,5 +36,5 @@ spec:
       volumes:
         - name: ssl
           secret:
-            secretName: nuwa-secret
+            secretName: kube-nuwa-secret
       terminationGracePeriodSeconds: 10

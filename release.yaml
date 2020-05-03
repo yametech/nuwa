@@ -1,0 +1,512 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.2
+  creationTimestamp: null
+  name: injectors.nuwa.nip.io
+spec:
+  group: nuwa.nip.io
+  names:
+    kind: Injector
+    listKind: InjectorList
+    plural: injectors
+    shortNames:
+    - nuwainj
+    singular: injector
+  scope: Namespaced
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.2
+  creationTimestamp: null
+  name: statefulsets.nuwa.nip.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.replicas
+    description: The desired number of pods.
+    name: Replicas
+    type: integer
+  - JSONPath: .status.replicas
+    description: The number of currently all pods.
+    name: Current
+    type: integer
+  - JSONPath: .status.updatedReplicas
+    description: The number of pods updated.
+    name: Update
+    type: integer
+  - JSONPath: .status.readyReplicas
+    description: The number of pods ready.
+    name: Ready
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    description: CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC.
+    name: Age
+    type: date
+  group: nuwa.nip.io
+  names:
+    kind: StatefulSet
+    listKind: StatefulSetList
+    plural: statefulsets
+    shortNames:
+    - nuwasts
+    singular: statefulset
+  scope: Namespaced
+  subresources:
+    scale:
+      labelSelectorPath: .status.labelSelector
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
+    status: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.2
+  creationTimestamp: null
+  name: stones.nuwa.nip.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.replicas
+    description: The desired number of pods.
+    name: Replicas
+    type: integer
+  - JSONPath: .status.statefulset
+    description: The desired number of statefulset.
+    name: Statefulset
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    description: CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC.
+    name: Age
+    type: date
+  group: nuwa.nip.io
+  names:
+    kind: Stone
+    listKind: StoneList
+    plural: stones
+    shortNames:
+    - nuwaste
+    singular: stone
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.2
+  creationTimestamp: null
+  name: waters.nuwa.nip.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.desired_replicas
+    description: The desired number of pods.
+    name: DesiredReplicas
+    type: integer
+  - JSONPath: .status.already_replicas
+    description: The desired number of pods.
+    name: AlreadyReplicas
+    type: integer
+  - JSONPath: .status.desired_deployment
+    description: The desired number of deployments.
+    name: DesiredDeployment
+    type: integer
+  - JSONPath: .status.already_deployment
+    description: The already replicas number of deployments.
+    name: AlreadyDeployment
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    description: CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC.
+    name: Age
+    type: date
+  group: nuwa.nip.io
+  names:
+    kind: Water
+    listKind: WaterList
+    plural: waters
+    shortNames:
+    - nuwawts
+    singular: water
+  scope: Namespaced
+  subresources:
+    scale:
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
+    status: {}
+  version: v1
+  versions:
+  - name: v1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: kube-nuwa-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUV0akNDQTU2Z0F3SUJBZ0lVRXYvWHpReTgya2drWlJLL0xmYkhycUFpaFFzd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2NqRUxNQWtHQTFVRUJoTUNRMDR4RWpBUUJnTlZCQWdUQ1VkMVlXNW5XbWh2ZFRFU01CQUdBMVVFQnhNSgpSM1ZoYm1kYWFHOTFNUXd3Q2dZRFZRUUtFd05yT0hNeER6QU5CZ05WQkFzVEJsTjVjM1JsYlRFY01Cb0dBMVVFCkF4TVRhM1ZpWlhKdVpYUmxjeTFUYjNWc2JXRjBaVEFlRncweU1EQTFNRE14TURJek1EQmFGdzAwTURBME1qZ3gKTURJek1EQmFNR014Q3pBSkJnTlZCQVlUQWtOT01SSXdFQVlEVlFRSUV3bEhkV0Z1WjFwb2IzVXhFakFRQmdOVgpCQWNUQ1VkMVlXNW5XbWh2ZFRFTU1Bb0dBMVVFQ2hNRGF6aHpNUTh3RFFZRFZRUUxFd1pUZVhOMFpXMHhEVEFMCkJnTlZCQU1UQkc1MWQyRXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEUzZvSUEKWnZjNnJlb0lCdHpSUmdXcGF2OFFnQk93d0FLdnlzYmlDTkVpenNZNmkwVWxrV0gyYVFvZHozb3Nrc2ZDTlpxdApRRWtGeHV1SHMvcmRJaW44UzlreFc5UVZEMmZQbldGcFYwcHdTYXpJR0ZwbitwWHBnNGJDYi9acGJvTWdsM1cvClhXNEQvYVRBOE92N3NHOHkwblVldDh5VXRGWHk2eWJ5TnFkY2o4Y2g5TlF5dnhGT2E5anByME9CdURTVEE1a08Kd2lHTm94ZitpVTRUeXZNNGlXUjBwVTV0Y0M1VGYraU9mT0dHNXpaRjg0cEJFYWFFOXRYRVNnVFZhU2swby9BUApSbzJGRFE4dHl6QmJOMWJUUmQvcTNLYVh6UnlmYkdqazNlTTBlRHNFOEo2eXJwUHlNeTdvUHZ3b2VuUStDV3c5ClFabFMzb2hFQVJPcy9rK1ZBZ01CQUFHamdnRlJNSUlCVFRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGwKQkJZd0ZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd0hRWURWUjBPQkJZRQpGRmgzZithV0NRM2pWaG9TOFBDb1pFblR3eTVmTUI4R0ExVWRJd1FZTUJhQUZGSHJpN3JvNVdsRTBOelJsS0NhCnNPcG9YOU4yTUlITkJnTlZIUkVFZ2NVd2djS0NGR3QxWW1VdGQyVmlhRzl2YXkxelpYSjJhV05sZ2lCcmRXSmwKTFhkbFltaHZiMnN0YzJWeWRtbGpaUzVyZFdKbExYTjVjM1JsYllJa2EzVmlaUzEzWldKb2IyOXJMWE5sY25acApZMlV1YTNWaVpTMXplWE4wWlcwdWMzWmpnamRyZFdKbExXTnZiblJ5YjJ4c1pYSXRiV0Z1WVdkbGNpMXRaWFJ5CmFXTnpMWE5sY25acFkyVXVhM1ZpWlMxemVYTjBaVzB1YzNaamhpbHJkV0psTFhkbFltaHZiMnN0YzJWeWRtbGoKWlM1cmRXSmxMWE41YzNSbGJTNXpkbU02TVRRME16QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFSa2ZZMExseQpDMzdKQmM4TGZ4amI4RDN6bVZ6UEZXRFF0UXMwOFFEc1Jtd2s4eSt4M2h4OTU4QW5hWmV1WGV6aEVZT3B6ZDZxCm1BODBwamVYR0hNS0x4SXlQOUtJNm1qUlVkZHNwVkNtUVpoS3pOUkpidVRQbnowT3ppanp4SWRjZi9ZK2xGbW8KSDhVcUNvOHNzblA0RmVqTi9hcCsvNTZ2R2JWTFRUZUxVQlF1UE1KRHg0MXpiZ045QlY0bmtyd0JWdkFOeHZzNgowYzRiMFYyR2I5UVVRYXBZTkYvS054c0RTSTl0dEtwcnNGY2VmNmx0akxHTGQreGpIUCsxRGtxcCtna1hYZS9sCkNGVFQvVnpsV1htVTN3QTdNMjlJZTBsT2thY25vQXVDSWwwN2l6d04wbEN6ZDlBM2RzWktmTFJ5ZUZaQnF4QmkKM1lDVnhrM3FjSmZGYkE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    service:
+      name: kube-webhook-service
+      namespace: kube-system
+      path: /injector-mutating-pods
+      port: 1443
+  failurePolicy: Ignore
+  name: injector.nuwa.nip.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+    scope: Namespaced
+  sideEffects: NoneOnDryRun
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUV0akNDQTU2Z0F3SUJBZ0lVRXYvWHpReTgya2drWlJLL0xmYkhycUFpaFFzd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2NqRUxNQWtHQTFVRUJoTUNRMDR4RWpBUUJnTlZCQWdUQ1VkMVlXNW5XbWh2ZFRFU01CQUdBMVVFQnhNSgpSM1ZoYm1kYWFHOTFNUXd3Q2dZRFZRUUtFd05yT0hNeER6QU5CZ05WQkFzVEJsTjVjM1JsYlRFY01Cb0dBMVVFCkF4TVRhM1ZpWlhKdVpYUmxjeTFUYjNWc2JXRjBaVEFlRncweU1EQTFNRE14TURJek1EQmFGdzAwTURBME1qZ3gKTURJek1EQmFNR014Q3pBSkJnTlZCQVlUQWtOT01SSXdFQVlEVlFRSUV3bEhkV0Z1WjFwb2IzVXhFakFRQmdOVgpCQWNUQ1VkMVlXNW5XbWh2ZFRFTU1Bb0dBMVVFQ2hNRGF6aHpNUTh3RFFZRFZRUUxFd1pUZVhOMFpXMHhEVEFMCkJnTlZCQU1UQkc1MWQyRXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEUzZvSUEKWnZjNnJlb0lCdHpSUmdXcGF2OFFnQk93d0FLdnlzYmlDTkVpenNZNmkwVWxrV0gyYVFvZHozb3Nrc2ZDTlpxdApRRWtGeHV1SHMvcmRJaW44UzlreFc5UVZEMmZQbldGcFYwcHdTYXpJR0ZwbitwWHBnNGJDYi9acGJvTWdsM1cvClhXNEQvYVRBOE92N3NHOHkwblVldDh5VXRGWHk2eWJ5TnFkY2o4Y2g5TlF5dnhGT2E5anByME9CdURTVEE1a08Kd2lHTm94ZitpVTRUeXZNNGlXUjBwVTV0Y0M1VGYraU9mT0dHNXpaRjg0cEJFYWFFOXRYRVNnVFZhU2swby9BUApSbzJGRFE4dHl6QmJOMWJUUmQvcTNLYVh6UnlmYkdqazNlTTBlRHNFOEo2eXJwUHlNeTdvUHZ3b2VuUStDV3c5ClFabFMzb2hFQVJPcy9rK1ZBZ01CQUFHamdnRlJNSUlCVFRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGwKQkJZd0ZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd0hRWURWUjBPQkJZRQpGRmgzZithV0NRM2pWaG9TOFBDb1pFblR3eTVmTUI4R0ExVWRJd1FZTUJhQUZGSHJpN3JvNVdsRTBOelJsS0NhCnNPcG9YOU4yTUlITkJnTlZIUkVFZ2NVd2djS0NGR3QxWW1VdGQyVmlhRzl2YXkxelpYSjJhV05sZ2lCcmRXSmwKTFhkbFltaHZiMnN0YzJWeWRtbGpaUzVyZFdKbExYTjVjM1JsYllJa2EzVmlaUzEzWldKb2IyOXJMWE5sY25acApZMlV1YTNWaVpTMXplWE4wWlcwdWMzWmpnamRyZFdKbExXTnZiblJ5YjJ4c1pYSXRiV0Z1WVdkbGNpMXRaWFJ5CmFXTnpMWE5sY25acFkyVXVhM1ZpWlMxemVYTjBaVzB1YzNaamhpbHJkV0psTFhkbFltaHZiMnN0YzJWeWRtbGoKWlM1cmRXSmxMWE41YzNSbGJTNXpkbU02TVRRME16QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFSa2ZZMExseQpDMzdKQmM4TGZ4amI4RDN6bVZ6UEZXRFF0UXMwOFFEc1Jtd2s4eSt4M2h4OTU4QW5hWmV1WGV6aEVZT3B6ZDZxCm1BODBwamVYR0hNS0x4SXlQOUtJNm1qUlVkZHNwVkNtUVpoS3pOUkpidVRQbnowT3ppanp4SWRjZi9ZK2xGbW8KSDhVcUNvOHNzblA0RmVqTi9hcCsvNTZ2R2JWTFRUZUxVQlF1UE1KRHg0MXpiZ045QlY0bmtyd0JWdkFOeHZzNgowYzRiMFYyR2I5UVVRYXBZTkYvS054c0RTSTl0dEtwcnNGY2VmNmx0akxHTGQreGpIUCsxRGtxcCtna1hYZS9sCkNGVFQvVnpsV1htVTN3QTdNMjlJZTBsT2thY25vQXVDSWwwN2l6d04wbEN6ZDlBM2RzWktmTFJ5ZUZaQnF4QmkKM1lDVnhrM3FjSmZGYkE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    service:
+      name: kube-webhook-service
+      namespace: kube-system
+      path: /namespace-mutating-resource
+      port: 1443
+  failurePolicy: Ignore
+  name: namespace.nuwa.nip.io
+  rules:
+  - apiGroups:
+    - ""
+    - apps
+    - batch
+    apiVersions:
+    - v1
+    - v1beta1
+    operations:
+    - CREATE
+    resources:
+    - replicationcontrollers
+    - replicasets
+    - jobs
+    - cronjobs
+    - deployments
+    - statefulset
+    scope: Namespaced
+  sideEffects: NoneOnDryRun
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-leader-election-role
+  namespace: kube-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: kube-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - nodes
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nuwa.nip.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-leader-election-rolebinding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-manager-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kube-system
+---
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUV0akNDQTU2Z0F3SUJBZ0lVRXYvWHpReTgya2drWlJLL0xmYkhycUFpaFFzd0RRWUpLb1pJaHZjTkFRRUwKQlFBd2NqRUxNQWtHQTFVRUJoTUNRMDR4RWpBUUJnTlZCQWdUQ1VkMVlXNW5XbWh2ZFRFU01CQUdBMVVFQnhNSgpSM1ZoYm1kYWFHOTFNUXd3Q2dZRFZRUUtFd05yT0hNeER6QU5CZ05WQkFzVEJsTjVjM1JsYlRFY01Cb0dBMVVFCkF4TVRhM1ZpWlhKdVpYUmxjeTFUYjNWc2JXRjBaVEFlRncweU1EQTFNRE14TURJek1EQmFGdzAwTURBME1qZ3gKTURJek1EQmFNR014Q3pBSkJnTlZCQVlUQWtOT01SSXdFQVlEVlFRSUV3bEhkV0Z1WjFwb2IzVXhFakFRQmdOVgpCQWNUQ1VkMVlXNW5XbWh2ZFRFTU1Bb0dBMVVFQ2hNRGF6aHpNUTh3RFFZRFZRUUxFd1pUZVhOMFpXMHhEVEFMCkJnTlZCQU1UQkc1MWQyRXdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEUzZvSUEKWnZjNnJlb0lCdHpSUmdXcGF2OFFnQk93d0FLdnlzYmlDTkVpenNZNmkwVWxrV0gyYVFvZHozb3Nrc2ZDTlpxdApRRWtGeHV1SHMvcmRJaW44UzlreFc5UVZEMmZQbldGcFYwcHdTYXpJR0ZwbitwWHBnNGJDYi9acGJvTWdsM1cvClhXNEQvYVRBOE92N3NHOHkwblVldDh5VXRGWHk2eWJ5TnFkY2o4Y2g5TlF5dnhGT2E5anByME9CdURTVEE1a08Kd2lHTm94ZitpVTRUeXZNNGlXUjBwVTV0Y0M1VGYraU9mT0dHNXpaRjg0cEJFYWFFOXRYRVNnVFZhU2swby9BUApSbzJGRFE4dHl6QmJOMWJUUmQvcTNLYVh6UnlmYkdqazNlTTBlRHNFOEo2eXJwUHlNeTdvUHZ3b2VuUStDV3c5ClFabFMzb2hFQVJPcy9rK1ZBZ01CQUFHamdnRlJNSUlCVFRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGwKQkJZd0ZBWUlLd1lCQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd0hRWURWUjBPQkJZRQpGRmgzZithV0NRM2pWaG9TOFBDb1pFblR3eTVmTUI4R0ExVWRJd1FZTUJhQUZGSHJpN3JvNVdsRTBOelJsS0NhCnNPcG9YOU4yTUlITkJnTlZIUkVFZ2NVd2djS0NGR3QxWW1VdGQyVmlhRzl2YXkxelpYSjJhV05sZ2lCcmRXSmwKTFhkbFltaHZiMnN0YzJWeWRtbGpaUzVyZFdKbExYTjVjM1JsYllJa2EzVmlaUzEzWldKb2IyOXJMWE5sY25acApZMlV1YTNWaVpTMXplWE4wWlcwdWMzWmpnamRyZFdKbExXTnZiblJ5YjJ4c1pYSXRiV0Z1WVdkbGNpMXRaWFJ5CmFXTnpMWE5sY25acFkyVXVhM1ZpWlMxemVYTjBaVzB1YzNaamhpbHJkV0psTFhkbFltaHZiMnN0YzJWeWRtbGoKWlM1cmRXSmxMWE41YzNSbGJTNXpkbU02TVRRME16QU5CZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFSa2ZZMExseQpDMzdKQmM4TGZ4amI4RDN6bVZ6UEZXRFF0UXMwOFFEc1Jtd2s4eSt4M2h4OTU4QW5hWmV1WGV6aEVZT3B6ZDZxCm1BODBwamVYR0hNS0x4SXlQOUtJNm1qUlVkZHNwVkNtUVpoS3pOUkpidVRQbnowT3ppanp4SWRjZi9ZK2xGbW8KSDhVcUNvOHNzblA0RmVqTi9hcCsvNTZ2R2JWTFRUZUxVQlF1UE1KRHg0MXpiZ045QlY0bmtyd0JWdkFOeHZzNgowYzRiMFYyR2I5UVVRYXBZTkYvS054c0RTSTl0dEtwcnNGY2VmNmx0akxHTGQreGpIUCsxRGtxcCtna1hYZS9sCkNGVFQvVnpsV1htVTN3QTdNMjlJZTBsT2thY25vQXVDSWwwN2l6d04wbEN6ZDlBM2RzWktmTFJ5ZUZaQnF4QmkKM1lDVnhrM3FjSmZGYkE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcGdJQkFBS0NBUUVBMHVxQ0FHYjNPcTNxQ0FiYzBVWUZxV3IvRUlBVHNNQUNyOHJHNGdqUklzN0dPb3RGCkpaRmg5bWtLSGM5NkxKTEh3aldhclVCSkJjYnJoN1A2M1NJcC9FdlpNVnZVRlE5bno1MWhhVmRLY0Vtc3lCaGEKWi9xVjZZT0d3bS8yYVc2RElKZDF2MTF1QS8ya3dQRHIrN0J2TXRKMUhyZk1sTFJWOHVzbThqYW5YSS9ISWZUVQpNcjhSVG12WTZhOURnYmcwa3dPWkRzSWhqYU1YL29sT0U4cnpPSWxrZEtWT2JYQXVVMy9vam56aGh1YzJSZk9LClFSR21oUGJWeEVvRTFXa3BOS1B3RDBhTmhRMFBMY3N3V3pkVzAwWGY2dHltbDgwY24yeG81TjNqTkhnN0JQQ2UKc3E2VDhqTXU2RDc4S0hwMFBnbHNQVUdaVXQ2SVJBRVRyUDVQbFFJREFRQUJBb0lCQVFDV3BPcVBrUHQ2VE9lQQpMaTZmeG95YXNoSlYzYlN5cEtJR255V29JallGejN4a0tqOE1FeWZPRUw0cUJwdXpwRzdLOXZCd1dCOFA0a0V0CjNzNEtEYkhCUXdkeEtxNXpFRnJNUGhOcVl1K0cvZ2hMcnFFNzdRNFFDR0pERkNjQ3JPMDVaUlN6eHU2aUtSTDQKdjlzOUhJcC8yVFBQNmVWVVBPMjZvRnhqMmNkMTR1c0tRdDU4R3dTRXpKREU3dW9qRC9RZzIvUVY2RjFJaTB6Rwp4TzBEYkttOUFZVmk1Z2dtanBPOHJnN1hyLzlxTTJVM3g4Sys0Vkgzbk9vVXA3aG93TjVUb1VPL3lCdmYwQlFJCndaUFFpSnN6VWp2MGVnakZPYTdWZW9TSFpHSWVHVWxlL0doVTJZdWxoVkZYWWpJa2xOZC9oSjNtcjVDOS9hRG8KVGI1QU1sanRBb0dCQU5zQU1MUGppcm1tZzhOejV2Vmh1OVh5czF3d1hWcm1nTytVRi9HWW9oU0J1Y2F4VDhJSgpJcUpNc2V4SEJWT2VDZm04QjFDazQzMHdhNWo5U3AyRCtVSTR3ZmNBZmZERmorUFljbUtBczFETW4xenVMclc0Ci9PRkZnQkdmb2l6T2dkMjNwd3VjeStmdUFwbCt4K01DeC9CR0x0bTNvdEFzMTZKbWtWTUpqcmtUQW9HQkFQYU0KcDBYaHZTOW1PbjViNEpxTW9oWDF6M1Z2aWhMaGVWRHNyeHViQWZJclZUTmpWWHpzRXJzNzN5MWdSb0hxT2g3SgpTQml4cFZxNkYvT3MxRlduOEhaaEZ1T2hPL1RDOTY2VEh5c1d6RzljSnFPQWhCdGVhaGVEQldUK0pFcVMydjZ1ClA4VzEvMTduRXFXYmY1eFN3RlhYSXkxTXB2bmJzZjNoUUJlaEUxRzNBb0dCQU1GZDk2SytSSjBMbzhnT0xGMTUKZ0NxMmN4dnhNRnkwcmgvYitSQS9IczFRaGNJa2lUSGdjdzR1L2VLTUN1MzcydjhBd015NTZvdDlGMlFzTVpmSApFVzBoUkZKZHd0VzIrd2ZJODZaNTBOcUU4aWxSdlRpREwvV1FNalpkWndwOUJEbktrTm8yQmV5eFFPWmJCUTh5ClEydXA3SEFjTHN2MDdDamV1MjVBUUI2MUFvR0JBS3QxeThxc244Mzc4VWY1QzIxUHlsVXRXcmFYK0ZVREcwUnQKSmFZMEdabGFDMm11ZGtCblNPdVBTcmthMEUzL0g2WlRZdUZSZ2VaanJzNlc3aUFYcUFJYnFUaHE0L0JuT3FyYwp3L3RLWXFnN1ZOKzJPNmx3OHFVaFNEb2hDQW9Zc1ZZV3htRHdIZ1hZK3ozU3MxOTZxU25KY1R4S3A0RHlDWW0vCkFieXRGMnRuQW9HQkFLY1A0blppNFQzcTBLNkw0cUx4NFJubzEvTmc0NkZJNmUyam9vNjhFek4yUkNxWUVMeCsKQjlEMGZlOXRqMGVzVVlnUHZCQ0RYZ1pXeFM2RE1jYmFXMHoxa1kzcVU2c1BVWkd6aWFMdlhYYWNiSUVGV0tnQgp2TEo4OVNLaWVIRW10d29NSHp6WndZNit0R2ZoYWV5QUZscE9tMy9DOERxc2o4dTlDVmIrVERGbQotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+kind: Secret
+metadata:
+  labels:
+    control-plane: nuwa-controller
+  name: kube-nuwa-secret
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: kube-controller-manager-metrics-service
+  namespace: kube-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: nuwa-controller
+  name: kube-webhook-service
+  namespace: kube-system
+spec:
+  ports:
+  - port: 1443
+    targetPort: 1443
+  selector:
+    control-plane: nuwa-controller
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: nuwa-controller
+  name: kube-nuwa-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: nuwa-controller
+  template:
+    metadata:
+      labels:
+        control-plane: nuwa-controller
+    spec:
+      containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: yametech/kube-rbac-proxy:v0.5.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        command:
+        - /manager
+        image: yametech/nuwa-controller:latest
+        name: manager
+        resources:
+          limits:
+            cpu: 2048m
+            memory: 4096Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /ssl
+          name: ssl
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: ssl
+        secret:
+          secretName: kube-nuwa-secret

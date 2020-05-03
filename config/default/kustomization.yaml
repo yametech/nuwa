@@ -12,7 +12,7 @@ namePrefix: kube-
 #commonLabels:
 #  someName: someValue
 resources:
-  - namespace.yaml
+#  - namespace.yaml
 
 bases:
 - ../crd

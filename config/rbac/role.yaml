@@ -16,6 +16,7 @@ rules:
       - configmaps
       - secrets
       - nodes
+      - namespaces
     verbs:
       - create
       - delete
@@ -39,11 +40,7 @@ rules:
   - apiGroups:
       - apps
     resources:
-      - deployments
-      - daemonsets
-      - replicasets
-      - statefulsets
-      - controllerrevisions
+      - '*'
     verbs:
       - create
       - delete
@@ -54,6 +51,18 @@ rules:
       - watch
   - apiGroups:
       - nuwa.nip.io
+    resources:
+      - '*'
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - batch
     resources:
       - '*'
     verbs:
