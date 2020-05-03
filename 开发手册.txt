@@ -4,8 +4,8 @@ export nuwa_dev_ip=10.211.55.2
 make gen-ssl
 3. 安装crd webhook
 make install
-4. 开始你的开发
-...
+4. 运行指定本地ssl
+go run main.go -ssl ./ssl/
 
 5. 卸载
 make uninstall

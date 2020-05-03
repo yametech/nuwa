@@ -23,6 +23,6 @@ spec:
     type: NodePort
   coordinates:
     - zone: A
-      rack: R1
+      rack: W-01
       host: node1
-      replicas: 1
+      replicas: 0

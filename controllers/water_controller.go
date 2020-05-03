@@ -67,28 +67,25 @@ func (r *WaterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err := r.updateCleanOldDeployment(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
-	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	for i := range coordinators {
-		local := coordinators[i]
+
+	coordinators := makeLocalCoordinates(instance.Spec.Coordinates)
+	for _, coordinator := range coordinators {
 		size := int32(1)
 		switch instance.Spec.Strategy {
 		case nuwav1.Alpha:
-			if local.Index > 0 {
+			if coordinator.Index > 0 {
 				continue
 			}
 		case nuwav1.Beta:
 		case nuwav1.Release:
-			size = local.Coordinate.Replicas
+			size = coordinator.Coordinate.Replicas
 		}
 		r.Log.Info("Water deploy strategy", "mode", instance.Spec.Strategy)
 		objKey := client.ObjectKey{
 			Namespace: req.Namespace,
-			Name:      deploymentName(local.Name, instance),
+			Name:      deploymentName(coordinator.Name, instance),
 		}
-		err = r.updateDeployment(ctx, objKey, instance, &size, local.NodeAffinity)
+		err = r.updateDeployment(ctx, objKey, instance, &size, coordinator.NodeAffinity)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -232,10 +229,7 @@ func (r *WaterReconciler) updateDeployment(
 
 func (r *WaterReconciler) updateWater(ctx context.Context, instance *nuwav1.Water) error {
 	expectStatus := nuwav1.WaterStatus{}
-	coordinators, err := makeLocalCoordinates(r.Client, instance.Spec.Coordinates)
-	if err != nil {
-		return error_stack.WithStack(err)
-	}
+	coordinators := makeLocalCoordinates(instance.Spec.Coordinates)
 	expectStatus.DesiredDeployment = int32(len(coordinators))
 	for i := range coordinators {
 		local := coordinators[i]
@@ -290,16 +284,12 @@ func (r *WaterReconciler) updateCleanOldDeployment(ctx context.Context, instance
 		}
 		for _, c := range tmp1 {
 			if nuwav1.In(tmp1, c) && !nuwav1.In(tmp2, c) {
-				coordinateName, err := coordinateName(&c)
-				if err != nil {
-					return error_stack.WithStack(err)
-				}
 				objKey := client.ObjectKey{
 					Namespace: instance.Namespace,
-					Name:      deploymentName(coordinateName, instance),
+					Name:      deploymentName(coordinateName(&c), instance),
 				}
 				deployment := &appsv1.Deployment{}
-				err = r.Client.Get(ctx, objKey, deployment)
+				err := r.Client.Get(ctx, objKey, deployment)
 				if errors.IsNotFound(err) {
 					continue
 				}

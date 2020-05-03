@@ -45,11 +45,8 @@ spec:
     type: NodePort
   coordinates:
     - group: A
-      replicas: 10
+      replicas: 2
       zoneset:
       - zone: A
-        rack: S-02
-        host: node2
-      - zone: B
         rack: W-01
-        host: node3
+        host: node1

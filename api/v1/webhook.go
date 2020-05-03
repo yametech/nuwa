@@ -63,10 +63,10 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 	}
 }
 
-func ignoredRequired(metadata *metav1.ObjectMeta) bool {
+func ignoredRequired(namespace string) bool {
 	// skip special kubernetes system namespaces
-	for _, namespace := range ingoredList {
-		if metadata.Namespace == namespace {
+	for _, ignoreNamespace := range ingoredList {
+		if namespace == ignoreNamespace {
 			return false
 		}
 	}
@@ -151,6 +151,7 @@ func (p *WebhookServer) ServeNamespaceMutateResource(w http.ResponseWriter, r *h
 func (p *WebhookServer) namespaceMutateResource(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	request := ar.Request
 	// query namesapce labels nuwa.kubernetes.io
+
 	mutateNamespaceName := ar.Request.Namespace
 	var srcObject runtime.Object
 	var destObject runtime.Object
@@ -404,9 +405,13 @@ func (p *WebhookServer) convertToNodeSelectorAffinity(coordinates Coordinates) *
 
 // Enhanced injector for waters/stones resources
 func (p *WebhookServer) injectorMutatePods(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	reviewResponse := &v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+
 	if ar.Request.Resource != podGvr {
-		p.Log.Error(fmt.Errorf("expect resource to be %s", podGvr), "")
-		return ar.Response
+		err := fmt.Errorf("expect resource to be %s", podGvr)
+		p.Log.Error(err, "")
+		return toAdmissionResponse(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -417,18 +422,16 @@ func (p *WebhookServer) injectorMutatePods(ar v1beta1.AdmissionReview) *v1beta1.
 		return toAdmissionResponse(err)
 	}
 
-	if ignoredRequired(&pod.ObjectMeta) {
-		return ar.Response
+	if !ignoredRequired(ar.Request.Namespace) {
+		return reviewResponse
 	}
 
-	reviewResponse := v1beta1.AdmissionResponse{}
-	reviewResponse.Allowed = true
 	podCopy := pod.DeepCopy()
 
 	// Ignore if exclusion annotation is present
 	if podAnnotations := pod.GetAnnotations(); podAnnotations != nil {
 		if _, isMirrorPod := podAnnotations[corev1.MirrorPodAnnotationKey]; isMirrorPod {
-			return &reviewResponse
+			return reviewResponse
 		}
 	}
 
@@ -445,7 +448,7 @@ func (p *WebhookServer) injectorMutatePods(ar v1beta1.AdmissionReview) *v1beta1.
 	}
 
 	if len(list.Items) == 0 {
-		return &reviewResponse
+		return reviewResponse
 	}
 
 	matchingIPods, err := filterInjectorPod(list.Items, &pod)
@@ -454,7 +457,7 @@ func (p *WebhookServer) injectorMutatePods(ar v1beta1.AdmissionReview) *v1beta1.
 	}
 
 	if len(matchingIPods) == 0 {
-		return &reviewResponse
+		return reviewResponse
 	}
 
 	sidecarNames := make([]string, len(matchingIPods))
@@ -566,7 +569,7 @@ func (p *WebhookServer) injectorMutatePods(ar v1beta1.AdmissionReview) *v1beta1.
 	pt := v1beta1.PatchTypeJSONPatch
 	reviewResponse.PatchType = &pt
 
-	return &reviewResponse
+	return reviewResponse
 }
 
 func filterInjectorPod(list []Injector, pod *corev1.Pod) ([]*Injector, error) {
