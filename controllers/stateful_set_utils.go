@@ -258,24 +258,7 @@ func coordinatorPod(client client.Client, set *nuwav1.StatefulSet, pod *v1.Pod, 
 		}
 
 		// Abandoned sort by replacs size , Matrix publishing by default
-		cod := coordinates[ordinal%len(coordinates)]
-		codLabels, err := coordinateMatchLabels(&cod)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate coordiante label error %s", set.Namespace, set.Name, err))
-			return pod
-		}
-		hostLabels, err := hostMatchLabels(&cod)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s generate host label error %s", set.Namespace, set.Name, err))
-			return pod
-		}
-		nodeList, err := findNodeWithLabels(client, codLabels, hostLabels)
-		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Statefulset %s/%s find node list error %s", set.Namespace, set.Name, err))
-			return pod
-		}
-
-		nodeAffinity := organizationNodeAffinity(&cod, nodeList)
+		nodeAffinity := organizationNodeAffinity(&coordinates[ordinal%len(coordinates)])
 		if pod.Spec.Affinity == nil || pod.Spec.Affinity.NodeAffinity == nil {
 			pod.Spec.Affinity = &v1.Affinity{NodeAffinity: nodeAffinity}
 		}

@@ -1,6 +1,5 @@
 /*
 Copyright 2019 The yametech Authors.
-Copyright 2019 The Kruise Authors.
 Copyright 2016 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -165,7 +164,6 @@ func (ssc *StatefulSetReconciler) adoptOrphanRevisions(set *nuwav1.StatefulSet) 
 func (ssc *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet, selector labels.Selector) ([]*v1.Pod, error) {
 	// List all pods to include the pods that don't match the selector anymore but
 	// has a ControllerRef pointing to this StatefulSet.
-	//pods, err := ssc.podLister.Pods(set.Namespace).List(labels.Everything())
 	ctx := context.TODO()
 	podList := &v1.PodList{}
 	err := ssc.Client.List(ctx, podList, client.InNamespace(set.Namespace))
@@ -181,7 +179,6 @@ func (ssc *StatefulSetReconciler) getPodsForStatefulSet(set *nuwav1.StatefulSet,
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing Pods (see #42639).
 	canAdoptFunc := kubecontroller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
-		//fresh, err := ssc.kruiseClient.AppsV1alpha1().StatefulSets(set.Namespace).Get(set.Name, metav1.GetOptions{})
 		fresh := &nuwav1.StatefulSet{}
 		objKey := client.ObjectKey{Namespace: set.Namespace, Name: set.Name}
 		err := ssc.Client.Get(ctx, objKey, fresh)

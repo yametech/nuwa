@@ -45,11 +45,15 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func podMutatingServe(pod *nuwav1.Pod) {
+func podMutatingServe(pod *nuwav1.WebhookServer) {
 	certFile := fmt.Sprintf("%s%s", sslDir, "/tls.crt")
 	keyFile := fmt.Sprintf("%s%s", sslDir, "/tls.key")
-	pod.Log.Info("start injector webhook", "certFile", certFile, "keyFile", keyFile)
-	http.HandleFunc("/mutating-pods", pod.ServeMutatePods)
+
+	pod.Log.Info("start webhooks", "certFile", certFile, "keyFile", keyFile)
+
+	http.HandleFunc("/injector-mutating-pods", pod.ServeInjectorMutatePods)
+	http.HandleFunc("/namespace-mutating-resource", pod.ServeNamespaceMutateResource)
+
 	if err := http.ListenAndServeTLS(":1443", certFile, keyFile, nil); err != nil {
 		panic(err)
 	}
@@ -72,7 +76,7 @@ func main() {
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "e931e6e2.nip.io",
+		LeaderElectionID:   "e931e6e2.nuwa.nip.io",
 		CertDir:            sslDir,
 	})
 	if err != nil {
@@ -117,7 +121,7 @@ func main() {
 	}
 
 	// +kubebuilder:scaffold:builder
-	go podMutatingServe(&nuwav1.Pod{Client: mgr.GetClient(), Log: ctrl.Log.WithName("webhook").WithName("pod webhook")})
+	go podMutatingServe(&nuwav1.WebhookServer{Client: mgr.GetClient(), Log: ctrl.Log.WithName("webhook").WithName("pod webhook")})
 
 	setupLog.Info("starting muwa controller manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

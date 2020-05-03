@@ -18,6 +18,7 @@ jobs:
       GOVER: 1.14.0
       GOOS: ${{ matrix.target_os }}
       GOPROXY: https://proxy.golang.org
+      GO111MODULE: on
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest]
@@ -27,10 +28,16 @@ jobs:
             target_os: linux
           - os: macOS-latest
             target_os: darwin
+          - os: windows-latest
+            target_os: windows
     steps:
       - name: Set up Go ${{ env.GOVER }}
         uses: actions/setup-go@v1
-      - name: install code-generate kustomize
-        run: go get github.com/kubernetes-sigs/kustomize && go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.2
-      - name: test build
-        run: make all
+        with:
+          go-version: 1.14
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install golangci-lint
+        run: curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "${{ env.GOROOT }}/bin" v1.21.0
+      - name: make build
+        run:  make build

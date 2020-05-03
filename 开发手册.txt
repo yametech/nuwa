@@ -1,0 +1,11 @@
+1. 声明开发者 ip
+export nuwa_dev_ip=10.211.55.2
+2. 生成webhook ssl
+make gen-ssl
+3. 安装crd webhook
+make install
+4. 运行指定本地ssl
+go run main.go -ssl ./ssl/
+
+5. 卸载
+make uninstall
