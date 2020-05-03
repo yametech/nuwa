@@ -4,7 +4,7 @@ If your machine or workload node already has a label, there are 2 nodes on zone 
 
 ```
 kubectl create ns dxp
-kubectl annotate --overwrite namespace dxp nuwa.kubernetes.io/default_resource_limit='[{"zone":"A","rack":"R1","host":"node1"},{"zone":"A","rack":"R2","host":"node2"}]'
+kubectl annotate --overwrite namespace dxp nuwa.kubernetes.io/default_resource_limit='[{"zone":"A","rack":"W-01","host":"node1"},{"zone":"A","rack":"W-02","host":"node2"}]'
 kubectl create deployment --image nginx my-nginx
 kubectl get deployment my-nginx
 
@@ -50,8 +50,8 @@ spec:
                   - key: nuwa.kubernetes.io/rack
                     operator: In
                     values:
-                      - R1
-                      - R2
+                      - W-01
+                      - W-02
           preferredDuringSchedulingIgnoredDuringExecution:
             - weight: 100
               preference:
