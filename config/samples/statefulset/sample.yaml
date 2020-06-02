@@ -3,7 +3,7 @@ kind: StatefulSet
 metadata:
   name: sample
 spec:
-  replicas: 3
+  replicas: 1
   serviceName: fake-service
   selector:
     matchLabels:

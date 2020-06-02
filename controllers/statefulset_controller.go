@@ -226,17 +226,21 @@ func (ssc *StatefulSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	)
 	ssc.podControl = &RealPodControl{Client: ssc.Client, Recorder: recorder}
 
-	if err := mgr.GetFieldIndexer().IndexField(&nuwav1.StatefulSet{}, jobOwnerKey, func(rawObj runtime.Object) []string {
-		job := rawObj.(*nuwav1.StatefulSet)
-		owner := metav1.GetControllerOf(job)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != apiGVStr || owner.Kind != "StatefulSet" {
-			return nil
-		}
-		return []string{owner.Name}
-	}); err != nil {
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&nuwav1.StatefulSet{},
+		jobOwnerKey,
+		func(rawObj runtime.Object) []string {
+			job := rawObj.(*nuwav1.StatefulSet)
+			owner := metav1.GetControllerOf(job)
+			if owner == nil {
+				return nil
+			}
+			if owner.APIVersion != apiGVStr || owner.Kind != "StatefulSet" {
+				return nil
+			}
+			return []string{owner.Name}
+		}); err != nil {
 		return err
 	}
 
