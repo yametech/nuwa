@@ -492,7 +492,7 @@ spec:
         - --enable-leader-election
         command:
         - /manager
-        image: yametech/nuwa-controller:latest
+        image: yametech/nuwa-controller:v1.0.1
         name: manager
         resources:
           limits:
