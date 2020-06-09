@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= yametech/nuwa-controller:latest
+IMG ?= yametech/nuwa-controller:v1.0.1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
