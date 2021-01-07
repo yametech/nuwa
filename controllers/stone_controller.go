@@ -189,7 +189,11 @@ func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, st
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// Create service
+				// check port dns name
 				serviceSpec := ste.Spec.Service.DeepCopy()
+				for _, item := range serviceSpec.Ports {
+					item.Name = strings.Replace(strings.Replace(strings.ToLower(item.Name), "_", "-", -1), ".", "", -1)
+				}
 				serviceSpec.Selector = map[string]string{"app": ste.Name}
 
 				service := &corev1.Service{
