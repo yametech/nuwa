@@ -32,6 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 	//_ "sort"
 )
 
@@ -194,7 +195,7 @@ func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, st
 				service := &corev1.Service{
 					TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            sts.Name,
+						Name:            strings.Replace(strings.Replace(strings.ToLower(sts.Name), "_", "-", -1), ".", "", -1),
 						Namespace:       sts.Namespace,
 						OwnerReferences: ownerReference(ste, "Stone"),
 					},
