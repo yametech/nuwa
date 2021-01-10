@@ -181,6 +181,20 @@ func (r *StoneReconciler) getStatefulSet(ctx context.Context, log logr.Logger, c
 	return stsPointerSlice, nil
 }
 
+func checkService(service *corev1.Service) bool {
+	if len(service.Spec.Ports) < 1 {
+		return false
+	}
+	for _, port := range service.Spec.Ports {
+		port.Name = strings.Replace(
+			strings.Replace(
+				strings.ToLower(port.Name),
+				"_", "-", -1),
+			".", "", -1)
+	}
+	return true
+}
+
 func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, ste *nuwav1.Stone, sts *nuwav1.StatefulSet) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		tmp := &corev1.Service{}
@@ -191,20 +205,22 @@ func (r *StoneReconciler) updateService(ctx context.Context, log logr.Logger, st
 				// Create service
 				// check port dns name
 				serviceSpec := ste.Spec.Service.DeepCopy()
-				for _, item := range serviceSpec.Ports {
-					item.Name = strings.Replace(strings.Replace(strings.ToLower(item.Name), "_", "-", -1), ".", "", -1)
-				}
 				serviceSpec.Selector = map[string]string{"app": ste.Name}
 
 				service := &corev1.Service{
 					TypeMeta: metav1.TypeMeta{Kind: "Service", APIVersion: "v1"},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:            strings.Replace(strings.Replace(strings.ToLower(sts.Name), "_", "-", -1), ".", "", -1),
+						Name:            sts.Name,
 						Namespace:       sts.Namespace,
 						OwnerReferences: ownerReference(ste, "Stone"),
 					},
 					Spec: *serviceSpec,
 				}
+
+				if !checkService(service) {
+					return nil
+				}
+
 				if err = r.Client.Create(ctx, service); err != nil {
 					return err
 				}
